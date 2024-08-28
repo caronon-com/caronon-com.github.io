@@ -1,0 +1,1 @@
+import{B as s,J as r,V as t}from"./index.c928c81e.js";const o={class:"column"},i={__name:"SwaggerPage",setup(a){const e="https://hoang.uk/api/docs/index.html";return(c,n)=>(s(),r("div",o,[t("iframe",{src:e,style:{width:"100%",height:"93vh",border:"0px"}}," Your browser doesn't support iframes ")]))}};export{i as default};
