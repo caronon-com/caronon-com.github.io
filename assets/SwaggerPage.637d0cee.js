@@ -1,0 +1,1 @@
+import{B as r,J as s,V as o}from"./index.51328698.js";const t={class:"column"},i={__name:"SwaggerPage",setup(a){const e="https://api.caronon.com/api/docs/index.html";return(c,n)=>(r(),s("div",t,[o("iframe",{src:e,style:{width:"100%",height:"93vh",border:"0px"}}," Your browser doesn't support iframes ")]))}};export{i as default};
