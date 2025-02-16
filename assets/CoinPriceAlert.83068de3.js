@@ -1,0 +1,1 @@
+import{u as a}from"./use-quasar.9a32f925.js";import{r as o,f as t,H as r}from"./index.ebab3077.js";const p={__name:"CoinPriceAlert",setup(n){const s=a(),e=o("");return t(async()=>{e.value="Hello",s.notify({message:e.value,type:"positive"})}),(l,u)=>" Hello World "+r(e.value)}};export{p as default};
