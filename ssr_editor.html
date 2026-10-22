@@ -241,27 +241,40 @@ if(typeof module!=='undefined')module.exports=SSR;
  var $=function(id){return document.getElementById(id)};
  // Main form definition: [tag, VN label, note, kind]
  // kind: 'num' | ['sel', [[value,label],...]] | 'chk'
+ // ---- Authoritative lists extracted statically from HDSet V4.0.38.11 (HDSet.exe + HDSet.pdb, HwConf.ini, Language/ledsetting_en.qm) ----
+ // CHIPS: [chipID, name, source]; chipID = (DriveChipTypeHigh<<8) | DriveChipType  (ST_HwConfig::_DriveChipType)
+ var CHIPS=[[0, "Conventional", "both"], [1, "MBI5041", "both"], [2, "MBI5252", "both"], [3, "MBI5153", "both"], [4, "MBI5152", "both"], [5, "MBI5124", "both"], [6, "MBI5268", "exe"], [7, "MBI5051", "exe"], [64, "PR505x", "both"], [72, "SUM2017", "both"], [73, "SUM2017T", "both"], [74, "SUM2018", "both"], [75, "SUM2019", "both"], [76, "SUM2030", "both"], [77, "SUM2031", "both"], [78, "SUM2032", "both"], [79, "SUM2033", "both"], [80, "SUM2130", "both"], [81, "SUM2131", "both"], [82, "SUM2035", "exe"], [96, "MY9868", "both"], [97, "MY9862", "both"], [98, "MY9866", "exe"], [128, "ICN2038", "both"], [129, "ICN2038S", "both"], [130, "ICN205x", "both"], [131, "ICN2055", "both"], [132, "ICN2065", "both"], [133, "ICN1063", "exe"], [144, "GeneralRZ", "exe"], [160, "SM16207S", "both"], [161, "SM16017S", "both"], [162, "SM16227S", "both"], [163, "SM16159", "both"], [164, "SM16237", "both"], [165, "SM16259", "both"], [166, "SM16359", "both"], [167, "SM16169", "both"], [168, "SM16369", "both"], [169, "SM16380", "both"], [170, "SM16389", "both"], [172, "SM16388", "exe"], [176, "LS9929", "both"], [177, "LS9919", "both"], [178, "LS9935", "both"], [179, "LS9935B", "both"], [180, "LS9930", "both"], [181, "LS9931", "exe"], [182, "LS9928", "exe"], [183, "LS9926", "exe"], [184, "LS9936", "exe"], [185, "LS9937", "exe"], [186, "LS9932", "exe"], [187, "LS9937D", "exe"], [188, "LS9952", "exe"], [190, "LS9001", "exe"], [192, "FM6127", "both"], [193, "FM6182", "both"], [224, "DP3264", "both"], [225, "DP3246", "both"], [226, "DP5125", "both"], [227, "DP5135", "exe"], [229, "DP3263", "exe"], [328, "CS2017", "ini"], [335, "CS2033", "both"], [345, "CFD435A", "exe"], [354, "FM6129", "exe"], [416, "SM16208", "exe"], [432, "LS9929C", "exe"], [436, "LS9933", "exe"], [441, "LS9956", "exe"], [444, "LS6850", "exe"], [446, "LS9001B", "exe"], [480, "DP3265", "both"], [584, "CFD135A", "exe"], [591, "CFD455A", "ini"], [1408, "ICN2028", "ini"], [1664, "ICN2037", "ini"], [1665, "ICN2045", "ini"], [1921, "ICN2046", "ini"], [1922, "ICN2053", "ini"], [2177, "ICN2047", "ini"], [2178, "ICN2153", "ini"], [2434, "ICN2163", "ini"], [2948, "FM6565S", "exe"], [3204, "FM6565F", "exe"], [4225, "GS6238S", "ini"], [4226, "GS6263", "ini"], [4259, "RT5965", "exe"], [16258, "FM6353", "ini"], [17024, "FM6124", "ini"], [17025, "FM6126", "ini"], [20353, "LYD6124", "ini"], [20609, "LYD6126", "ini"], [49411, "FM6153", "both"], [49667, "FM6253", "ini"], [49923, "FM6047", "ini"], [51074, "FM6363", "ini"], [51332, "FM6565", "ini"], [52995, "LYD6168", "both"], [53380, "HX8864", "both"], [53636, "AXS6018", "exe"], [65535, "Other", "ini"]];
+ var CHIPSRC={"exe": "HDSet.exe", "ini": "HwConf.ini", "both": "HDSet.exe + HwConf.ini"};
+ function chipName(id){for(var i=0;i<CHIPS.length;i++)if(CHIPS[i][0]===id)return CHIPS[i][1];return null}
+ function chipOpts(){var hi=parseInt(st.cur.DriveChipTypeHigh||'0',10)||0;return CHIPS.filter(function(c){return (c[0]>>8)===hi}).map(function(c){return [String(c[0]&255),(c[0]&255)+' – '+c[1]+(hi?' (ID 0x'+c[0].toString(16)+')':'')+' ['+CHIPSRC[c[2]]+']']})}
  var FORM=[
   ['Thông số cơ bản (Basic parameters)',[
    ['RefreshRate','Tần số quét – Refresh rate','Giá trị thật (Hz). Ảnh: 1920','num'],
    ['R_Acc','Tăng tốc refresh – Refresh rate acceleration','Ảnh: 32','num'],
-   ['GrayLevel','Độ xám – Gradation','Chỉ số menu, chưa có bảng tra. File mẫu: 11 ↔ 4096 (đoán)','num'],
-   ['Frequency','Tần số DCLK – DCLK Frequency','Chỉ số menu. File mẫu: 4 ↔ 15.625MHz (đoán)','num'],
+   ['GrayLevel','Độ xám – Gradation','XÁC NHẬN (ST_HwConfig::GetGrayLevel): mức xám = 2^(GrayLevel+1). Mẫu 11 = 4096 ✔ (exGammaBit≠0 nhân thêm gain)',['sel',[["7", "7 – 256 mức xám"], ["8", "8 – 512 mức xám"], ["9", "9 – 1024 mức xám"], ["10", "10 – 2048 mức xám"], ["11", "11 – 4096 mức xám"], ["12", "12 – 8192 mức xám"], ["13", "13 – 16384 mức xám"], ["14", "14 – 32768 mức xám"], ["15", "15 – 65536 mức xám"]]]],
+   ['Frequency','Tần số DCLK – DCLK Frequency','XÁC NHẬN (HCHipInfoBase::getFrequencyUI) cho IC dùng bảng mặc định (có MBI5124); vài IC khác có bảng riêng. Mẫu 4 = 15.625MHz ✔',['sel',[["0", "0 – 31.25 MHz"], ["1", "1 – 25 MHz"], ["2", "2 – 20.8 MHz"], ["3", "3 – 17.86 MHz"], ["4", "4 – 15.625 MHz"], ["5", "5 – 13.9 MHz"], ["6", "6 – 12.5 MHz"], ["7", "7 – 11.36 MHz"], ["8", "8 – 10.4 MHz"], ["9", "9 – 9.6 MHz"], ["10", "10 – 8.3 MHz"], ["11", "11 – 7.8125 MHz"], ["12", "12 – 6.25 MHz"], ["13", "13 – 5.0 MHz"], ["14", "14 – 4.03 MHz"], ["15", "15 – 3.125 MHz"]]]],
    ['Phase','Pha – Phase','Ảnh: 2','num'],
    ['BV','Dòng xóa – Blanking Line','Ảnh: 25','num'],
-   ['LuminanceLevel','Mức sáng – Brightness level','Chỉ số menu. 1 ↔ Normal brightness (đoán)','num'],
-   ['PriorityMode','Chế độ ưu tiên – Priority mode','Chỉ số menu. 1 ↔ Refresh rate priority (đoán)','num'],
+   ['LuminanceLevel','Mức sáng – Brightness level','XÁC NHẬN (HReceiverParameters::InitUI/on_brightness…: lưu currentIndex). Mẫu 1 ✔',['sel',[['0','0 – Low light'],['1','1 – Normal brightness'],['2','2 – High light']]]],
+   ['PriorityMode','Chế độ ưu tiên – Priority mode','XÁC NHẬN (InitUI + on_priofity…: lưu index). Mẫu 1 ✔',['sel',[['0','0 – Brightness priority'],['1','1 – Refresh Rate Priority'],['2','2 – Grayscale priority']]]],
+   ['GrayMode','Chế độ xám – Gray mode','XÁC NHẬN (updateGrayModelUI). File mẫu không có trường này → phần mềm dùng 0',['sel',[['0','0 – Low gray balance'],['1','1 – Video noise reduction']]]],
    ['lineBreakTime','Line break time','Ảnh: 5. Offset Raw chưa chắc → chỉ sửa XML','num'],
    ['refreshOptimization','Refresh optimization','0/1 (ảnh: không tích)','num']
   ]],
   ['Module (Tips)',[
-   ['ModuleType','Loại module – Module type','0 ↔ Full Color (đoán)','num'],
-   ['ScanMode','Kiểu quét – Scan (1/N)','Giá trị N. Ảnh: 1/13 = 13 (xác nhận)','num'],
-   ['DecodingMode','Giải mã – Decoding method','Chỉ số menu. 1 ↔ "138" (đoán)','num'],
-   ['DataPolarity','Cực tính data – Data polarity',"1 = Highly effective (xác nhận từ ảnh); 0 suy ra là Low",['sel',[['1','1 – Highly effective (mức cao)'],['0','0 – Low effective (mức thấp)']]]],
-   ['OEPolarity','Cực tính OE – OE polarity',"0 = Low effective (xác nhận từ ảnh); 1 suy ra là High",['sel',[['0','0 – Low effective (mức thấp)'],['1','1 – Highly effective (mức cao)']]]],
-   ['DriveChipType','IC driver – Drive','Chỉ số. 5 ↔ MBI5124 (đoán)','num'],
-   ['PwmChipType','PwmChipType','Chưa rõ nghĩa','num'],
+   ['ModuleType','Loại module – Module type','XÁC NHẬN (HReceiverParameters::UpdateTips): 0 = Full Color, ≠0 = Single Color',['sel',[['0','0 – Full Color'],['1','1 – Single Color']]]],
+   ['ScanMode','Kiểu quét – Scan (1/N)','XÁC NHẬN (UpdateTips): N của 1/N; 1 = Static. Mẫu 13 ✔','num'],
+   ['DecodingMode','Giải mã – Decoding method','XÁC NHẬN (ST_HwConfig::GetDecodeChipName). Với 1, tên cụ thể phụ thuộc Chip595/Chip5958/Chip5266/Chip5366/DP32019/ICN2018/_decodingMethod138 – xem "Giá trị suy ra". Chip LS9001 luôn = No Decoding',['sel',[["0", "0 – No Decoding"], ["1", "1 – họ 138 (595/RT5958…/SM5266/SM5366/DP32019/ICN2018…/138/ICN2012…, tùy cờ phụ)"], ["3", "3 – DP32030/DP32029/DP32020"], ["5", "5 – ICN2013"], ["7", "7 – TC7559B"], ["8", "8 – LS9708"], ["9", "9 – TC7239"], ["11", "11 – HX6158H"], ["13", "13 – SM5388/SM5368/SM5369"], ["15", "15 – LS9736"], ["16", "16 – LS9716"], ["17", "17 – DP32129/DP32039"], ["18", "18 – CFD2138S"]]]],
+   ['Chip595','Cờ 74HC595 – Chip595','Cờ phụ cho DecodingMode=1 (ưu tiên 1)','chk'],
+   ['Chip5958','Cờ 5958 – Chip5958','Cờ phụ (ưu tiên 2): RT5958/TC7558/HX6157/VB5658 theo _decodingMethod5958','chk'],
+   ['Chip5266','Cờ SM5266 – Chip5266','Cờ phụ (ưu tiên 3)','chk'],
+   ['Chip5366','Cờ SM5366 – Chip5366','Cờ phụ (ưu tiên 4)','chk'],
+   ['DataPolarity','Cực tính data – Data polarity','XÁC NHẬN (UpdateTips): 0 = Low effective, ≠0 = Highly effective',['sel',[['1','1 – Highly effective (mức cao)'],['0','0 – Low effective (mức thấp)']]]],
+   ['OEPolarity','Cực tính OE – OE polarity','XÁC NHẬN (UpdateTips): 0 = Low effective, ≠0 = Highly effective',['sel',[['0','0 – Low effective (mức thấp)'],['1','1 – Highly effective (mức cao)']]]],
+   ['DriveChipType','IC driver – Drive','XÁC NHẬN: ID chip = (DriveChipTypeHigh<<8)|DriveChipType (ST_HwConfig::_DriveChipType → HChipInfoFactory::CreateChipInfoObj; khớp ChipID trong HwConf.ini). Mẫu: 5, không có High → 0x05 = MBI5124 ✔ (thanh ghi mặc định 0x7D6B/0xF16B/0xED6B, GCLKSmartMax 0x3FF khớp). Lưu ý: chỉ đổi byte thấp; HDSet khi đổi IC còn nạp lại nhiều thanh ghi mặc định – editor KHÔNG làm việc đó','chip'],
+   ['PwmChipType','PwmChipType','CHƯA RÕ nghĩa (không thuộc ID chip)','num'],
+   ['OM','Chế độ – Mode','XÁC NHẬN (on_OutputMode_currentIndexChanged: OM = index+1). Mẫu 1 ✔',['sel',[["1", "1 – Single separate"], ["2", "2 – Two separate"], ["3", "3 – Three separate"], ["4", "4 – Four separate"], ["5", "5 – Five separate"], ["6", "6 – Six separate"], ["7", "7 – Seven separate"], ["8", "8 – Eight separate"], ["9", "9 – Nine separate"], ["10", "10 – Ten separate"], ["11", "11 – Eleven separate"], ["12", "12 – Twelve separate"], ["13", "13 – Thirteen separate"], ["14", "14 – Fourteen separate"], ["15", "15 – Fifteen separate"], ["16", "16 – Sixteen separate"]]]],
+   ['_rotation','Xoay – Rotation','XÁC NHẬN (retranslateUi + on__rotation; chú thích trong CorrectionScript). File mẫu không có trường → 0',['sel',[['0','0 – 0°'],['1','1 – 90°'],['2','2 – 180°'],['3','3 – 270°']]]],
    ['CellWidth','CellWidth (độ rộng module)','Chưa rõ nghĩa trên UI','num'],
    ['CellHight','CellHight (độ cao module)','Chưa rõ nghĩa trên UI','num']
   ]],
@@ -278,10 +291,30 @@ if(typeof module!=='undefined')module.exports=SSR;
    ['enclosureHeight_','Cao – Height','Ảnh: 52','num'],
    ['CardMaxCtrlWidth','Giới hạn rộng (<=)','Ảnh: 159 – phần mềm thường tự tính','num'],
    ['CardMaxCtrlHeight','Giới hạn cao (<=)','Ảnh: 624 – phần mềm thường tự tính','num'],
-   ['NetCard','Cổng mạng – Network port','0 ↔ Network port 1 (đoán)','num']
+   ['NetCard','NetCard','CHƯA RÕ: HCommon::BeginGeneratorBuf ghi từ thuộc tính thiết bị/card gửi; KHÔNG phải combo "Network port" (combo đó không ghi trường này)','num']
   ]]
  ];
- var NOTFOUND='Chưa tìm thấy trường tương ứng trong file: Gray mode (Low gray balance), Rotation, Mode (Single separate), Min OE, Highly effective %.';
+ var NOTFOUND='Min OE và Highly effective % không lưu trong file – phần mềm tự tính (xem "Giá trị suy ra"). Chưa rõ: PwmChipType, NetCard, CellWidth/CellHight trên UI.';
+ function decoderName(c){var g=function(t){return parseInt(c[t]||'0',10)||0};var id=(g('DriveChipTypeHigh')<<8)|g('DriveChipType');
+  if(id===0xbe||id===0x1be||id===0x2be)return 'No Decoding (chip LS9001)';var m=g('DecodingMode');
+  if(m===1){if(g('Chip595')===1)return '595';if(g('Chip5958')===1)return ['RT5958','TC7558','HX6157','VB5658'][g('_decodingMethod5958')]||'RT5958?';
+   if(g('Chip5266'))return 'SM5266';if(g('Chip5366'))return 'SM5366';if(g('DP32019')||g('_decodingDp32019'))return 'DP32019';
+   var i=g('ICN2018');if(i===1)return 'ICN2018';if(i===3)return 'CNS3018';if(i===5)return 'HX6258';
+   return ['138','ICN2012','ICN2013','SM5166','TC7258'][g('_decodingMethod138')]||'138 decoding';}
+  var M={3:'DP32030/DP32029/DP32020',5:'ICN2013',7:'TC7559B',8:'LS9708',9:'TC7239',11:'HX6158H',13:'SM5388/SM5368/SM5369',15:'LS9736',16:'LS9716',17:'DP32129/DP32039',18:'CFD2138S'};return M[m]||'No Decoding';}
+ function derived(c){var n=function(t){return parseFloat(c[t]||'0')||0},r=[];
+  var id=(n('DriveChipTypeHigh')<<8)|n('DriveChipType');r.push(['IC driver','0x'+id.toString(16)+' = '+(chipName(id)||'không có trong danh sách')]);
+  r.push(['Giải mã',decoderName(c)]);
+  var gl=n('GrayLevel');r.push(['Mức xám',gl?String(Math.pow(2,gl+1)):'?']);
+  var oet=n('OE_T'),mo=n('Max_OE_Clk_Num'),racc=n('R_Acc');
+  if(n('PWMICFlag')===0&&n('DUAL_LATCH_FLAG')!==1&&oet&&racc){
+   var e=((2*n('B_fn')*mo-mo/oet)*(n('RefreshRate')*n('ScanMode')/racc))/1250000+3;
+   r.push(['Highly effective',(Math.floor(e*100)/100).toFixed(2)+'%']);
+   r.push(['Min OE',String(Math.floor(mo/oet)*8)]);
+  }else if(n('PWMICFlag')===1&&n('PWMSRAMFLAG')===0){r.push(['Highly effective','99.9% (IC PWM, không SRAM)']);r.push(['Min OE','nhánh PWM – chưa mô phỏng'])}
+  else r.push(['Highly effective / Min OE','nhánh PWM/dual-latch – chưa mô phỏng']);
+  r.push(['Ghi chú','tính lại từ B_fn, Max_OE_Clk_Num, OE_T, RefreshRate, ScanMode, R_Acc; đổi các giá trị đó thì HDSet thường tự tính lại']);
+  return r;}
 
  function badge(tag){var s=SSR.rawStatus(tag);
   return s==='raw'?'<span class="badge b-raw" title="Sửa cả XML và byte trong gói Raw (CRC tự tính lại)">XML+Raw</span>'
@@ -308,6 +341,7 @@ if(typeof module!=='undefined')module.exports=SSR;
   h+='Thay đổi: '+n+(n?' → '+Object.keys(ch).map(function(k){return k+'='+esc(String(ch[k]).slice(0,30))}).join(', '):'')+'\n';
   if(res.patched.length)h+='<span class="ok">Vá Raw: '+res.patched.map(esc).join('; ')+'</span>\n';
   if(res.warnings.length)h+='<span class="warn">⚠ '+res.warnings.map(esc).join('\n⚠ ')+'</span>\n';
+  h+='<b>Giá trị suy ra (tính lại theo công thức HDSet, không lưu trong file):</b> '+derived(st.cur).map(function(x){return esc(x[0])+': <b>'+esc(x[1])+'</b>'}).join(' | ')+'\n';
   h+='<span class="note">'+NOTFOUND+'</span>';
   $('status').innerHTML=h;
   document.querySelectorAll('[data-tag]').forEach(function(el){var t=el.dataset.tag,row=el.closest('.f,tr');if(row)row.classList.toggle('changed',st.cur[t]!==st.orig[t])});
@@ -318,7 +352,7 @@ if(typeof module!=='undefined')module.exports=SSR;
   FORM.forEach(function(sec){
    h+='<fieldset><legend>'+sec[0]+'</legend><div class="grid">';
    sec[1].forEach(function(f){
-    var tag=f[0],kind=f[3],v=st.cur[tag];
+    var tag=f[0],kind=f[3],v=st.cur[tag];if(kind==='chip')kind=['sel',chipOpts()];
     if(v===undefined){h+='<div class="f"><label>'+f[1]+'<small>'+tag+'</small></label><span class="note">không có trong file</span><span></span></div>';return}
     var inp;
     if(kind==='chk'&&(v==='0'||v==='1'))inp='<input type="checkbox" data-tag="'+tag+'" '+(v==='1'?'checked':'')+'>';
