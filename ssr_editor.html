@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSR Editor – Huidu receive card config</title>
+<style>
+ body{font-family:Segoe UI,Arial,sans-serif;margin:0;background:#f3f4f6;color:#111;font-size:14px}
+ header{background:#1f3a5f;color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+ header h1{font-size:17px;margin:0 12px 0 0}
+ button{padding:6px 12px;border:1px solid #888;border-radius:4px;background:#fff;cursor:pointer}
+ button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+ button:disabled{opacity:.5;cursor:default}
+ #drop{margin:16px;padding:28px;border:2px dashed #999;border-radius:8px;text-align:center;background:#fff}
+ #drop.over{background:#e0ecff;border-color:#2563eb}
+ main{padding:0 16px 40px}
+ .tabs{display:flex;gap:4px;margin:8px 0}
+ .tabs button.active{background:#1f3a5f;color:#fff}
+ fieldset{background:#fff;border:1px solid #ccc;border-radius:6px;margin:10px 0;padding:8px 12px}
+ legend{font-weight:600;padding:0 6px}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:6px 18px}
+ .f{display:grid;grid-template-columns:minmax(150px,1fr) 125px minmax(150px,1.2fr);align-items:center;gap:6px;padding:3px 0;border-bottom:1px dotted #ddd}
+ .f label{font-size:13px}.f label small{color:#666;display:block;font-size:11px}
+ .f input[type=number],.f select{width:110px;padding:3px}
+ .note{font-size:11px;color:#555}
+ .badge{font-size:10px;padding:1px 5px;border-radius:8px;margin-left:4px;white-space:nowrap}
+ .b-raw{background:#d1fae5;color:#065f46}.b-xml{background:#fef3c7;color:#92400e}
+ .changed{background:#fff7d6}
+ #status{margin:8px 0;padding:8px;background:#fff;border-radius:6px;border:1px solid #ccc;white-space:pre-wrap;font-family:Consolas,monospace;font-size:12px}
+ .ok{color:#047857}.bad{color:#b91c1c}.warn{color:#b45309}
+ table{border-collapse:collapse;background:#fff;width:100%}
+ td,th{border:1px solid #ddd;padding:3px 6px;font-size:12px;vertical-align:top;text-align:left}
+ td input{width:100%;box-sizing:border-box;font-family:Consolas,monospace;font-size:12px}
+ td textarea{width:100%;box-sizing:border-box;height:46px;font-family:Consolas,monospace;font-size:11px}
+ #hex{font-family:Consolas,monospace;font-size:12px;background:#fff;padding:8px;border:1px solid #ccc;white-space:pre;overflow:auto}
+ #hex span.m{background:#d1fae5}#hex span.g{background:#fef3c7}#hex span.c{background:#fecaca;font-weight:bold}
+ .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+ <h1>SSR Editor <small style="font-weight:normal">(Huidu receive-card .ssr)</small></h1>
+ <input type="file" id="file" accept=".ssr" class="hidden">
+ <button id="btnOpen">📂 Mở file (Open)</button>
+ <button id="btnSave" class="primary" disabled>💾 Lưu .ssr mới (Save)</button>
+ <button id="btnReset" disabled>↺ Hoàn tác tất cả (Reset)</button>
+ <span id="fname"></span>
+</header>
+<div id="drop">Kéo-thả file <b>.ssr</b> vào đây hoặc bấm "Mở file". Chạy hoàn toàn offline, không gửi dữ liệu đi đâu.</div>
+<main id="app" class="hidden">
+ <div id="status"></div>
+ <div class="tabs">
+  <button data-tab="form" class="active">Thông số chính (Main)</button>
+  <button data-tab="adv">Nâng cao – tất cả trường (Advanced)</button>
+  <button data-tab="hex">Raw / Hex</button>
+ </div>
+ <section id="tab-form"></section>
+ <section id="tab-adv" class="hidden">
+  <p class="note">Mọi thẻ <code>&lt;X Value="..."/&gt;</code> (trừ &lt;Raw&gt;). Sửa dưới dạng văn bản thô. Huy hiệu xanh = cũng vá byte trong gói Raw; vàng = chỉ sửa XML.
+  Lọc: <input id="advFilter" placeholder="tên trường..."></p>
+  <table id="advTable"><thead><tr><th>Tên (Field)</th><th>Giá trị (Value)</th><th>Raw?</th></tr></thead><tbody></tbody></table>
+ </section>
+ <section id="tab-hex" class="hidden">
+  <p>Gói: <select id="pktSel"></select> <label><input type="checkbox" id="hexPreview" checked> Xem bản đã áp thay đổi (preview)</label></p>
+  <p class="note">Offset tính từ đầu payload (byte 17 của gói). <span style="background:#d1fae5">xanh</span> = offset đã xác nhận, <span style="background:#fef3c7">vàng</span> = offset đoán (không vá), <span style="background:#fecaca">đỏ</span> = byte khác bản gốc. Di chuột để xem tên trường.</p>
+  <div id="pktInfo" class="note"></div>
+  <div id="hex"></div>
+ </section>
+</main>
+
+<script id="ssr-core">
+// ================= CORE (no DOM) – also used by the node test =================
+var SSR = (function(){
+ // ---- MD5 (RFC 1321) ----
+ function md5(bytes){
+  var K=new Int32Array(64),S=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  for(var i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)|0;
+  var n=bytes.length,tot=((n+8>>>6)+1)*64,m=new Uint8Array(tot);m.set(bytes);m[n]=0x80;
+  var bl=n*8;for(i=0;i<8;i++){m[tot-8+i]=bl&255;bl=Math.floor(bl/256);}
+  var a0=0x67452301,b0=0xefcdab89|0,c0=0x98badcfe|0,d0=0x10325476,M=new Int32Array(16);
+  for(var off=0;off<tot;off+=64){
+   for(i=0;i<16;i++)M[i]=m[off+i*4]|m[off+i*4+1]<<8|m[off+i*4+2]<<16|m[off+i*4+3]<<24;
+   var A=a0,B=b0,C=c0,D=d0,F,g;
+   for(i=0;i<64;i++){
+    if(i<16){F=(B&C)|(~B&D);g=i}else if(i<32){F=(D&B)|(~D&C);g=(5*i+1)&15}
+    else if(i<48){F=B^C^D;g=(3*i+5)&15}else{F=C^(B|~D);g=(7*i)&15}
+    F=(F+A+K[i]+M[g])|0;A=D;D=C;C=B;B=(B+((F<<S[i])|(F>>>(32-S[i]))))|0;
+   }
+   a0=(a0+A)|0;b0=(b0+B)|0;c0=(c0+C)|0;d0=(d0+D)|0;
+  }
+  var out=new Uint8Array(16),w=[a0,b0,c0,d0];
+  for(i=0;i<4;i++)for(var j=0;j<4;j++)out[i*4+j]=(w[i]>>>(8*j))&255;
+  return out;
+ }
+ // ---- CRC32 (zlib) ----
+ var CRC_T=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+ function crc32(b,s,e){var c=0xFFFFFFFF;for(var i=s;i<e;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+ // ---- helpers ----
+ function hex(b){return Array.from(b,function(x){return (x<16?'0':'')+x.toString(16)}).join('')}
+ function b64dec(s){var bin=atob(s),u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+ function b64enc(u){var s='';for(var i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)}
+ function utf8(s){return new TextEncoder().encode(s)}
+ function rd32(b,o){return ((b[o]<<24)>>>0)+(b[o+1]<<16)+(b[o+2]<<8)+b[o+3]}
+ function wr32(b,o,v){b[o]=v>>>24&255;b[o+1]=v>>>16&255;b[o+2]=v>>>8&255;b[o+3]=v&255}
+ function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+ function xmlUnesc(s){return s.replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&apos;/g,"'").replace(/&amp;/g,'&')}
+
+ // ---- container ----
+ // 0x00 u32 version(=4) | 0x04 4B flag | 0x08 u32 hashLen(16) | MD5(UTF-8 XML) | i64 nChars | u32 byteLen | UTF-16BE XML
+ function parse(u8){
+  if(u8.length<40)throw new Error('File quá ngắn');
+  var hl=rd32(u8,8); if(hl!==16)throw new Error('Header lạ: hashLen='+hl+' (mong đợi 16)');
+  var p=12+hl, md5s=u8.slice(12,p);
+  var nHi=rd32(u8,p),nLo=rd32(u8,p+4),nchars=nHi*4294967296+nLo; p+=8;
+  var blen=rd32(u8,p); p+=4;
+  if(p+blen>u8.length)throw new Error('Độ dài chuỗi vượt quá file');
+  var parts=[],CH=0x4000;
+  for(var i=0;i<blen;i+=CH*2){var arr=[];for(var j=i;j<Math.min(blen,i+CH*2);j+=2)arr.push(u8[p+j]<<8|u8[p+j+1]);parts.push(String.fromCharCode.apply(null,arr))}
+  var xml=parts.join('');
+  var calc=md5(utf8(xml));
+  return {prefix:u8.slice(0,8),version:rd32(u8,0),flagHex:hex(u8.slice(4,8)),md5Stored:hex(md5s),md5Calc:hex(calc),
+   md5Ok:hex(md5s)===hex(calc),nchars:nchars,ncharsOk:nchars===blen/2,blen:blen,trailing:u8.length-p-blen,xml:xml};
+ }
+ function build(xml,prefix){
+  var n=xml.length,body=new Uint8Array(n*2);
+  for(var i=0;i<n;i++){var c=xml.charCodeAt(i);body[2*i]=c>>8;body[2*i+1]=c&255}
+  var out=new Uint8Array(40+body.length);
+  out.set(prefix||[0,0,0,4,1,0,0,0],0); wr32(out,8,16); out.set(md5(utf8(xml)),12);
+  wr32(out,28,Math.floor(n/4294967296)); wr32(out,32,n>>>0); wr32(out,36,body.length); out.set(body,40);
+  return out;
+ }
+ // ---- fields (string-level so formatting is preserved) ----
+ function listFields(xml){
+  var re=/<([A-Za-z_][\w.\-]*) Value="([^"]*)"/g,m,res=[],seen={};
+  while((m=re.exec(xml))){ if(m[1]==='Raw')continue; if(seen[m[1]]){seen[m[1]].dup++;continue}
+   var f={tag:m[1],value:xmlUnesc(m[2]),dup:0};seen[m[1]]=f;res.push(f)}
+  return res;
+ }
+ function setField(xml,tag,val){
+  var key='<'+tag+' Value="',i=xml.indexOf(key); if(i<0)throw new Error('Không thấy trường '+tag);
+  var s=i+key.length,e=xml.indexOf('"',s);
+  return xml.slice(0,s)+xmlEsc(val)+xml.slice(e);
+ }
+ function listRaws(xml){
+  var re=/<Raw Value="([^"]*)"/g,m,res=[];
+  while((m=re.exec(xml))){var s=m.index+12,b=b64dec(m[1]);res.push({start:s,end:s+m[1].length,bytes:b,info:rawInfo(b)})}
+  return res;
+ }
+ function rawInfo(b){
+  var plen=b[15]<<8|b[16],stored=(b[b.length-4]|b[b.length-3]<<8|b[b.length-2]<<16|b[b.length-1]<<24)>>>0;
+  return {hdr:hex(b.slice(8,17)),type:b[12],sub:b[14],plen:plen,lenOk:17+plen+4===b.length,crcOk:crc32(b,8,b.length-4)===stored,
+   preambleOk:hex(b.slice(0,8))==='55555555555555d5'};
+ }
+ function fixCrc(b){var c=crc32(b,8,b.length-4);b[b.length-4]=c&255;b[b.length-3]=c>>>8&255;b[b.length-2]=c>>>16&255;b[b.length-1]=c>>>24&255;return b}
+ function replaceRaws(xml,raws){ // raws = listRaws result with (possibly) modified bytes
+  var out='',last=0;
+  raws.forEach(function(r){out+=xml.slice(last,r.start)+b64enc(r.bytes);last=r.end});
+  return out+xml.slice(last);
+ }
+ // ---- mapping of XML fields -> payload of Raw packet type 1 (offset, size) ----
+ // conf 'ok' = value matched XML in sample file; 'guess' = not patched.
+ var P1=[
+  [0,1,'ModuleType','ok'],[1,1,'ScreenSwitch','ok'],[2,1,'CellWidth','ok'],[3,1,'CellHight','ok'],
+  [4,1,'DataPolarity','ok'],[5,1,'OEPolarity','ok'],[6,1,'DecodingMode','ok'],[7,1,'SignalColor','ok'],
+  [8,1,'ScanMode','ok'],[9,1,'Frequency','ok'],[10,1,'DutyCycle','ok'],[11,1,'PriorityMode','ok'],
+  [12,1,'GrayLevel','ok'],[13,1,'LuminanceLevel','ok'],[14,1,'DSignalExtended','ok'],[15,1,'RGB20','ok'],
+  [16,1,'OM','ok'],[17,1,'Phase','ok'],[18,2,'BV','ok'],[20,1,'RedCorrection','ok'],[21,1,'GreenCorrection','ok'],
+  [22,1,'BlueCorrection','ok'],[23,1,'GamaValue','ok'],[24,1,'CellScanRow','ok'],[25,1,'NoSignalProcess','ok'],
+  [26,1,'CellNullNum','ok'],[28,2,'CellDataNum','ok'],[30,2,'CellScanNum','ok'],[32,2,'SignalOutput','ok'],
+  [36,2,'LookUpTabSetting','ok'],[39,1,'ColourTemperature','ok'],[40,1,'RGB24','ok'],[41,1,'RGB32','ok'],[42,1,'RGB28','ok'],
+  [44,2,'GCLKSmartMax','ok'],[46,2,'PWMSmartReg','ok'],[48,1,'F_Frame','ok'],[49,1,'R_Acc','ok'],[50,2,'RefreshRate','ok'],
+  [54,2,'CardMaxCtrlWidth','ok'],[56,2,'CardMaxCtrlHeight','ok'],[58,1,'S_Fn','ok'],[59,1,'B_fn','ok'],[60,2,'OE_T','ok'],
+  [62,2,'Max_Data_Num','ok'],[65,2,'Max_OE_Clk_Num','ok'],[76,1,'UDefGamaList','ok'],[81,1,'PwmChipType','ok'],
+  [82,1,'PwmFrequency','ok'],[83,1,'PwmRedCurrent','ok'],[84,1,'PwmGreenCurrent','ok'],[85,1,'PwmBlueCurrent','ok'],
+  [86,1,'DriveChipType','ok'],[91,1,'GCLKMultiplier','ok'],[95,1,'VSHighPulseCycleNum','ok'],[102,2,'GCLKMaxNum','ok'],
+  [106,2,'PWMICRedReg1','ok'],[108,2,'PWMICGreenReg1','ok'],[110,2,'PWMICBlueReg1','ok'],[112,2,'PWMICRedReg2','ok'],
+  [114,2,'PWMICGreenReg2','ok'],[116,2,'PWMICBlueReg2','ok'],[118,2,'PWMICRedReg3','ok'],[120,2,'PWMICGreenReg3','ok'],
+  [122,2,'PWMICBlueReg3','ok'],[125,1,'WRConfigCnt1','ok'],[131,1,'FMPWMMultiplier','guess'],[163,1,'GCLK_PHASE','guess'],
+  [164,2,'PWMICDefaultRedReg4','ok'],[166,2,'PWMICDefaultGreenReg4','ok'],[168,2,'PWMICDefaultBlueReg4','ok'],
+  [170,2,'PWMICDefaultRedReg5','ok'],[172,2,'PWMICDefaultGreenReg5','ok'],[174,2,'PWMICDefaultBlueReg5','ok'],
+  [242,1,'refreshMultiple','guess'],[252,1,'lineBreakTime','guess'],[464,2,'enclosureWidth_','ok'],[466,2,'enclosureHeight_','ok']
+ ];
+ var P1BY={};P1.forEach(function(e){P1BY[e[2]]={off:e[0],size:e[1],conf:e[3]}});
+ // Blob fields whose bytes are copied verbatim into other packets (verified by equality in sample)
+ var BLOBS={OutputDefinition:{type:1,off:256,len:64},ScanTab:{type:2,off:0,len:512},GamaTab:{type:3,off:0,len:512},LookUpTab:{type:4,off:0,len:3072,split:true}};
+ function rawStatus(tag){
+  if(P1BY[tag])return P1BY[tag].conf==='ok'?'raw':'guess';
+  if(BLOBS[tag])return 'raw';
+  return 'xml';
+ }
+ // Apply edits {tag:newValue} to original xml. Returns {xml,warnings[],patched[]}
+ function applyEdits(xml,edits){
+  var warnings=[],patched=[],tags=Object.keys(edits);
+  tags.forEach(function(t){xml=setField(xml,t,edits[t])});
+  var raws=listRaws(xml),touched={};
+  function pk(type,sub){for(var i=0;i<raws.length;i++)if(raws[i].info.type===type&&raws[i].info.sub===(sub||0))return i;return -1}
+  tags.forEach(function(t){
+   var v=edits[t],m=P1BY[t];
+   if(m){
+    if(m.conf!=='ok'){warnings.push(t+': offset Raw chỉ là phỏng đoán → CHỈ sửa XML, gói Raw giữ nguyên');return}
+    if(!/^\d+$/.test(String(v).trim())){warnings.push(t+': giá trị không phải số nguyên → không vá Raw');return}
+    var n=parseInt(v,10),max=m.size===1?255:65535;
+    if(n>max){warnings.push(t+': '+n+' vượt quá '+max+' (u'+m.size*8+') → không vá Raw');return}
+    var i=pk(1,0); if(i<0){warnings.push('Không có gói Raw type 1');return}
+    var b=raws[i].bytes,o=17+m.off;
+    if(m.size===1)b[o]=n;else{b[o]=n>>8;b[o+1]=n&255}
+    touched[i]=1;patched.push(t+' → Raw#'+i+' type1 p['+m.off+']');return;
+   }
+   var bl=BLOBS[t];
+   if(bl){
+    var d;try{d=b64dec(String(v).trim())}catch(e){warnings.push(t+': base64 không hợp lệ → không vá Raw');return}
+    if(bl.split){
+     var chunks=raws.map(function(r,i){return i}).filter(function(i){return raws[i].info.type===bl.type}).sort(function(a,b){return raws[a].info.sub-raws[b].info.sub});
+     var cap=chunks.reduce(function(s,i){return s+raws[i].info.plen},0);
+     if(d.length>cap){warnings.push(t+': dài '+d.length+' > '+cap+' byte → không vá Raw');return}
+     var pos=0;chunks.forEach(function(i){var pl=raws[i].info.plen;for(var k=0;k<pl&&pos<d.length;k++,pos++)raws[i].bytes[17+k]=d[pos];touched[i]=1});
+     patched.push(t+' → Raw type'+bl.type+' ('+chunks.length+' gói)');
+    }else{
+     if(d.length!==bl.len){warnings.push(t+': độ dài '+d.length+' ≠ '+bl.len+' byte → không vá Raw');return}
+     var j=pk(bl.type,0);if(j<0){warnings.push(t+': không có gói type '+bl.type);return}
+     raws[j].bytes.set(d,17+bl.off);touched[j]=1;patched.push(t+' → Raw#'+j+' type'+bl.type);
+    }
+    return;
+   }
+   warnings.push(t+': không có ánh xạ Raw đã xác nhận → CHỈ sửa XML');
+  });
+  var tl=Object.keys(touched);
+  if(tl.length){tl.forEach(function(i){fixCrc(raws[i].bytes)});xml=replaceRaws(xml,raws)}
+  return {xml:xml,warnings:warnings,patched:patched};
+ }
+ return {md5:md5,crc32:crc32,hex:hex,b64dec:b64dec,b64enc:b64enc,parse:parse,build:build,listFields:listFields,setField:setField,
+  listRaws:listRaws,rawInfo:rawInfo,applyEdits:applyEdits,rawStatus:rawStatus,P1:P1,P1BY:P1BY,BLOBS:BLOBS};
+})();
+if(typeof module!=='undefined')module.exports=SSR;
+</script>
+
+<script>
+// ================= UI =================
+(function(){
+ var st=null; // {name, info, origXml, fields, orig:{tag:val}, cur:{tag:val}}
+ var $=function(id){return document.getElementById(id)};
+ // Main form definition: [tag, VN label, note, kind]
+ // kind: 'num' | ['sel', [[value,label],...]] | 'chk'
+ var FORM=[
+  ['Thông số cơ bản (Basic parameters)',[
+   ['RefreshRate','Tần số quét – Refresh rate','Giá trị thật (Hz). Ảnh: 1920','num'],
+   ['R_Acc','Tăng tốc refresh – Refresh rate acceleration','Ảnh: 32','num'],
+   ['GrayLevel','Độ xám – Gradation','Chỉ số menu, chưa có bảng tra. File mẫu: 11 ↔ 4096 (đoán)','num'],
+   ['Frequency','Tần số DCLK – DCLK Frequency','Chỉ số menu. File mẫu: 4 ↔ 15.625MHz (đoán)','num'],
+   ['Phase','Pha – Phase','Ảnh: 2','num'],
+   ['BV','Dòng xóa – Blanking Line','Ảnh: 25','num'],
+   ['LuminanceLevel','Mức sáng – Brightness level','Chỉ số menu. 1 ↔ Normal brightness (đoán)','num'],
+   ['PriorityMode','Chế độ ưu tiên – Priority mode','Chỉ số menu. 1 ↔ Refresh rate priority (đoán)','num'],
+   ['lineBreakTime','Line break time','Ảnh: 5. Offset Raw chưa chắc → chỉ sửa XML','num'],
+   ['refreshOptimization','Refresh optimization','0/1 (ảnh: không tích)','num']
+  ]],
+  ['Module (Tips)',[
+   ['ModuleType','Loại module – Module type','0 ↔ Full Color (đoán)','num'],
+   ['ScanMode','Kiểu quét – Scan (1/N)','Giá trị N. Ảnh: 1/13 = 13 (xác nhận)','num'],
+   ['DecodingMode','Giải mã – Decoding method','Chỉ số menu. 1 ↔ "138" (đoán)','num'],
+   ['DataPolarity','Cực tính data – Data polarity',"1 = Highly effective (xác nhận từ ảnh); 0 suy ra là Low",['sel',[['1','1 – Highly effective (mức cao)'],['0','0 – Low effective (mức thấp)']]]],
+   ['OEPolarity','Cực tính OE – OE polarity',"0 = Low effective (xác nhận từ ảnh); 1 suy ra là High",['sel',[['0','0 – Low effective (mức thấp)'],['1','1 – Highly effective (mức cao)']]]],
+   ['DriveChipType','IC driver – Drive','Chỉ số. 5 ↔ MBI5124 (đoán)','num'],
+   ['PwmChipType','PwmChipType','Chưa rõ nghĩa','num'],
+   ['CellWidth','CellWidth (độ rộng module)','Chưa rõ nghĩa trên UI','num'],
+   ['CellHight','CellHight (độ cao module)','Chưa rõ nghĩa trên UI','num']
+  ]],
+  ['HUB settings (0/1)',[
+   ['RGB24','HUB75-12 (24RGB)','Xác nhận: 1 = tích','chk'],
+   ['RGB32','HUB75-16 (32RGB)','Đoán theo tên trường','chk'],
+   ['RGB28','R505 (28RGB)','Đoán theo tên trường','chk'],
+   ['RGB20','HUB75-10 (20RGB)','Đoán theo tên trường','chk'],
+   ['RGB128','Serial 128 group','Đoán theo tên trường','chk']
+  ]],
+  ['Hộp – Case',[
+   ['boxType','Loại hộp – Box type','0 ↔ Regular box (xác nhận 1 giá trị); 1 ↔ Construct box (đoán)','num'],
+   ['enclosureWidth_','Rộng – Width','Ảnh: 52','num'],
+   ['enclosureHeight_','Cao – Height','Ảnh: 52','num'],
+   ['CardMaxCtrlWidth','Giới hạn rộng (<=)','Ảnh: 159 – phần mềm thường tự tính','num'],
+   ['CardMaxCtrlHeight','Giới hạn cao (<=)','Ảnh: 624 – phần mềm thường tự tính','num'],
+   ['NetCard','Cổng mạng – Network port','0 ↔ Network port 1 (đoán)','num']
+  ]]
+ ];
+ var NOTFOUND='Chưa tìm thấy trường tương ứng trong file: Gray mode (Low gray balance), Rotation, Mode (Single separate), Min OE, Highly effective %.';
+
+ function badge(tag){var s=SSR.rawStatus(tag);
+  return s==='raw'?'<span class="badge b-raw" title="Sửa cả XML và byte trong gói Raw (CRC tự tính lại)">XML+Raw</span>'
+   :s==='guess'?'<span class="badge b-xml" title="Offset Raw chỉ là phỏng đoán – không vá">chỉ XML (Raw đoán)</span>'
+   :'<span class="badge b-xml" title="Không có ánh xạ Raw đã xác nhận">chỉ XML</span>';}
+ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+ function load(name,buf){
+  var info;try{info=SSR.parse(new Uint8Array(buf))}catch(e){alert('Không đọc được file: '+e.message);return}
+  var dpOk=true;try{var d=new DOMParser().parseFromString(info.xml,'application/xml');if(d.getElementsByTagName('parsererror').length)dpOk=false}catch(e){dpOk=false}
+  var fields=SSR.listFields(info.xml),orig={};fields.forEach(function(f){orig[f.tag]=f.value});
+  st={name:name,info:info,origXml:info.xml,fields:fields,orig:orig,cur:Object.assign({},orig),dpOk:dpOk,raws:SSR.listRaws(info.xml)};
+  $('fname').textContent=name;$('app').classList.remove('hidden');$('btnSave').disabled=false;$('btnReset').disabled=false;
+  renderForm();renderAdv();renderPktSel();renderHex();updateStatus();
+ }
+ function changes(){var e={};for(var k in st.cur)if(st.cur[k]!==st.orig[k])e[k]=st.cur[k];return e}
+ function updateStatus(){
+  var i=st.info,r=st.raws,ch=changes(),n=Object.keys(ch).length,res=SSR.applyEdits(st.origXml,ch);
+  var crcBad=r.filter(function(x){return !x.info.crcOk}).length;
+  var h='<b>'+esc(st.name)+'</b> – version='+i.version+' flag='+i.flagHex+' | MD5: '+(i.md5Ok?'<span class="ok">hợp lệ ✔</span>':'<span class="bad">SAI ✘ (file đã bị sửa tay?)</span>')+
+   ' | độ dài: '+(i.ncharsOk?'<span class="ok">OK</span>':'<span class="bad">lệch</span>')+(i.trailing?' <span class="warn">(thừa '+i.trailing+' byte cuối)</span>':'')+
+   ' | XML: '+(st.dpOk?'<span class="ok">hợp lệ</span>':'<span class="bad">DOMParser báo lỗi</span>')+' | '+st.fields.length+' trường, '+r.length+' gói Raw, CRC: '+
+   (crcBad?'<span class="bad">'+crcBad+' gói sai</span>':'<span class="ok">tất cả đúng</span>')+'\n';
+  h+='Thay đổi: '+n+(n?' → '+Object.keys(ch).map(function(k){return k+'='+esc(String(ch[k]).slice(0,30))}).join(', '):'')+'\n';
+  if(res.patched.length)h+='<span class="ok">Vá Raw: '+res.patched.map(esc).join('; ')+'</span>\n';
+  if(res.warnings.length)h+='<span class="warn">⚠ '+res.warnings.map(esc).join('\n⚠ ')+'</span>\n';
+  h+='<span class="note">'+NOTFOUND+'</span>';
+  $('status').innerHTML=h;
+  document.querySelectorAll('[data-tag]').forEach(function(el){var t=el.dataset.tag,row=el.closest('.f,tr');if(row)row.classList.toggle('changed',st.cur[t]!==st.orig[t])});
+  if(!$('tab-hex').classList.contains('hidden'))renderHex();
+ }
+ function renderForm(){
+  var h='';
+  FORM.forEach(function(sec){
+   h+='<fieldset><legend>'+sec[0]+'</legend><div class="grid">';
+   sec[1].forEach(function(f){
+    var tag=f[0],kind=f[3],v=st.cur[tag];
+    if(v===undefined){h+='<div class="f"><label>'+f[1]+'<small>'+tag+'</small></label><span class="note">không có trong file</span><span></span></div>';return}
+    var inp;
+    if(kind==='chk'&&(v==='0'||v==='1'))inp='<input type="checkbox" data-tag="'+tag+'" '+(v==='1'?'checked':'')+'>';
+    else if(Array.isArray(kind)&&kind[1].some(function(o){return o[0]===v}))inp='<select data-tag="'+tag+'">'+kind[1].map(function(o){return '<option value="'+o[0]+'"'+(o[0]===v?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>';
+    else inp='<input type="number" min="0" data-tag="'+tag+'" value="'+esc(v)+'">';
+    h+='<div class="f"><label>'+f[1]+'<small>'+tag+'</small></label>'+inp+'<span class="note">'+f[2]+' '+badge(tag)+'</span></div>';
+   });
+   h+='</div></fieldset>';
+  });
+  $('tab-form').innerHTML=h;
+  $('tab-form').querySelectorAll('[data-tag]').forEach(function(el){el.addEventListener('input',onEdit);el.addEventListener('change',onEdit)});
+ }
+ function renderAdv(){
+  var tb=$('advTable').tBodies[0],h='';
+  st.fields.forEach(function(f){
+   var v=st.cur[f.tag],long=v.length>60;
+   h+='<tr data-name="'+f.tag.toLowerCase()+'"><td>'+f.tag+(f.dup?' <span class="warn">(lặp '+(f.dup+1)+' lần, chỉ sửa lần đầu)</span>':'')+(long?'<br><span class="note">'+v.length+' ký tự (base64)</span>':'')+'</td><td>'+
+    (long?'<textarea data-tag="'+f.tag+'" spellcheck="false">'+esc(v)+'</textarea>':'<input data-tag="'+f.tag+'" value="'+esc(v)+'" spellcheck="false">')+'</td><td>'+badge(f.tag)+'</td></tr>';
+  });
+  tb.innerHTML=h;
+  tb.querySelectorAll('[data-tag]').forEach(function(el){el.addEventListener('change',onEdit);el.addEventListener('input',onEdit)});
+ }
+ function onEdit(ev){
+  var el=ev.target,t=el.dataset.tag,v=el.type==='checkbox'?(el.checked?'1':'0'):el.value;
+  st.cur[t]=v;
+  document.querySelectorAll('[data-tag="'+t+'"]').forEach(function(o){if(o===el)return;if(o.type==='checkbox')o.checked=v==='1';else if(o.value!==v)o.value=v});
+  updateStatus();
+ }
+ function renderPktSel(){
+  $('pktSel').innerHTML=st.raws.map(function(r,i){return '<option value="'+i+'">#'+i+' type '+r.info.type+' sub '+r.info.sub+' ('+r.info.plen+' B)'+(r.info.type===1?' – thông số chính':'')+'</option>'}).join('');
+ }
+ function renderHex(){
+  var i=+$('pktSel').value||0,orig=st.raws[i];if(!orig){$('hex').textContent='';return}
+  var raws=$('hexPreview').checked?SSR.listRaws(SSR.applyEdits(st.origXml,changes()).xml):st.raws,r=raws[i];
+  var inf=r.info,b=r.bytes;
+  $('pktInfo').innerHTML='Preamble: '+(inf.preambleOk?'OK':'lạ')+' | header: '+inf.hdr+' | type='+inf.type+' sub='+inf.sub+' len='+inf.plen+' | CRC32: '+(inf.crcOk?'<span class="ok">đúng</span>':'<span class="bad">sai</span>');
+  var lab={};
+  if(inf.type===1){SSR.P1.forEach(function(e){for(var k=0;k<e[1];k++)lab[e[0]+k]=[e[2]+(e[1]>1?' (u16 BE)':' (u8)'),e[3]]});for(var k=256;k<320;k++)lab[k]=['OutputDefinition['+(k-256)+']','ok']}
+  var s='';
+  for(var o=0;o<inf.plen;o+=16){
+   s+=('000'+o).slice(-3)+'  ';
+   for(var k=o;k<Math.min(o+16,inf.plen);k++){
+    var x=b[17+k],hx=(x<16?'0':'')+x.toString(16),diff=x!==orig.bytes[17+k],l=lab[k];
+    var cls=diff?'c':l?(l[1]==='ok'?'m':'g'):'';
+    s+=cls||l?'<span class="'+cls+'" title="p['+k+'] '+(l?esc(l[0])+(l[1]==='ok'?'':' – ĐOÁN'):'?')+' = '+x+'">'+hx+'</span> ':hx+' ';
+   }
+   s+='\n';
+  }
+  $('hex').innerHTML=s;
+ }
+ function save(){
+  var res=SSR.applyEdits(st.origXml,changes());
+  if(res.warnings.length&&!confirm('Cảnh báo:\n- '+res.warnings.join('\n- ')+'\n\nVẫn lưu?'))return;
+  var out=SSR.build(res.xml,st.info.prefix);
+  var chk=SSR.parse(out),bad=SSR.listRaws(chk.xml).filter(function(r){return !r.info.crcOk}).length;
+  if(!chk.md5Ok||bad){alert('Lỗi tự kiểm tra (MD5/CRC) – không lưu');return}
+  var a=document.createElement('a'),url=URL.createObjectURL(new Blob([out],{type:'application/octet-stream'}));
+  a.href=url;a.download=st.name.replace(/\.ssr$/i,'')+'_edited.ssr';document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);a.remove()},1000);
+ }
+ function openFile(f){var r=new FileReader();r.onload=function(){load(f.name,r.result)};r.readAsArrayBuffer(f)}
+ $('btnOpen').onclick=function(){$('file').click()};
+ $('file').onchange=function(){if(this.files[0])openFile(this.files[0]);this.value=''};
+ $('btnSave').onclick=save;
+ $('btnReset').onclick=function(){if(!confirm('Hoàn tác mọi thay đổi?'))return;st.cur=Object.assign({},st.orig);renderForm();renderAdv();updateStatus()};
+ var dz=document.body;
+ dz.addEventListener('dragover',function(e){e.preventDefault();$('drop').classList.add('over')});
+ dz.addEventListener('dragleave',function(){$('drop').classList.remove('over')});
+ dz.addEventListener('drop',function(e){e.preventDefault();$('drop').classList.remove('over');if(e.dataTransfer.files[0])openFile(e.dataTransfer.files[0])});
+ document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){
+  document.querySelectorAll('.tabs button').forEach(function(x){x.classList.toggle('active',x===b)});
+  ['form','adv','hex'].forEach(function(t){$('tab-'+t).classList.toggle('hidden',t!==b.dataset.tab)});
+  if(b.dataset.tab==='hex'&&st)renderHex()}});
+ $('pktSel').onchange=renderHex;$('hexPreview').onchange=renderHex;
+ $('advFilter').oninput=function(){var q=this.value.toLowerCase();$('advTable').querySelectorAll('tbody tr').forEach(function(tr){tr.style.display=tr.dataset.name.indexOf(q)>=0?'':'none'})};
+})();
+</script>
+</body>
+</html>
