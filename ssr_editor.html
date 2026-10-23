@@ -159,32 +159,56 @@ var SSR = (function(){
  }
  // ---- mapping of XML fields -> payload of Raw packet type 1 (offset, size) ----
  // conf 'ok' = value matched XML in sample file; 'guess' = not patched.
+ // Type-1 payload map – AUTHORITATIVE, extracted statically from HDSet.exe ST_HwConfig::PrepareData (0xa73b10)
+ // [payloadOffset, size(BE), XML tag, conf, ST_HwConfig struct offset]; conf: ok=patch, calc=patch (HDSet recomputes), cond=XML only (HDSet writes conditionally), info=no XML tag
  var P1=[
-  [0,1,'ModuleType','ok'],[1,1,'ScreenSwitch','ok'],[2,1,'CellWidth','ok'],[3,1,'CellHight','ok'],
-  [4,1,'DataPolarity','ok'],[5,1,'OEPolarity','ok'],[6,1,'DecodingMode','ok'],[7,1,'SignalColor','ok'],
-  [8,1,'ScanMode','ok'],[9,1,'Frequency','ok'],[10,1,'DutyCycle','ok'],[11,1,'PriorityMode','ok'],
-  [12,1,'GrayLevel','ok'],[13,1,'LuminanceLevel','ok'],[14,1,'DSignalExtended','ok'],[15,1,'RGB20','ok'],
-  [16,1,'OM','ok'],[17,1,'Phase','ok'],[18,2,'BV','ok'],[20,1,'RedCorrection','ok'],[21,1,'GreenCorrection','ok'],
-  [22,1,'BlueCorrection','ok'],[23,1,'GamaValue','ok'],[24,1,'CellScanRow','ok'],[25,1,'NoSignalProcess','ok'],
-  [26,1,'CellNullNum','ok'],[28,2,'CellDataNum','ok'],[30,2,'CellScanNum','ok'],[32,2,'SignalOutput','ok'],
-  [36,2,'LookUpTabSetting','ok'],[39,1,'ColourTemperature','ok'],[40,1,'RGB24','ok'],[41,1,'RGB32','ok'],[42,1,'RGB28','ok'],
-  [44,2,'GCLKSmartMax','ok'],[46,2,'PWMSmartReg','ok'],[48,1,'F_Frame','ok'],[49,1,'R_Acc','ok'],[50,2,'RefreshRate','ok'],
-  [54,2,'CardMaxCtrlWidth','ok'],[56,2,'CardMaxCtrlHeight','ok'],[58,1,'S_Fn','ok'],[59,1,'B_fn','ok'],[60,2,'OE_T','ok'],
-  [62,2,'Max_Data_Num','ok'],[65,2,'Max_OE_Clk_Num','ok'],[76,1,'UDefGamaList','ok'],[81,1,'PwmChipType','ok'],
-  [82,1,'PwmFrequency','ok'],[83,1,'PwmRedCurrent','ok'],[84,1,'PwmGreenCurrent','ok'],[85,1,'PwmBlueCurrent','ok'],
-  [86,1,'DriveChipType','ok'],[91,1,'GCLKMultiplier','ok'],[95,1,'VSHighPulseCycleNum','ok'],[102,2,'GCLKMaxNum','ok'],
-  [106,2,'PWMICRedReg1','ok'],[108,2,'PWMICGreenReg1','ok'],[110,2,'PWMICBlueReg1','ok'],[112,2,'PWMICRedReg2','ok'],
-  [114,2,'PWMICGreenReg2','ok'],[116,2,'PWMICBlueReg2','ok'],[118,2,'PWMICRedReg3','ok'],[120,2,'PWMICGreenReg3','ok'],
-  [122,2,'PWMICBlueReg3','ok'],[125,1,'WRConfigCnt1','ok'],[131,1,'FMPWMMultiplier','guess'],[163,1,'GCLK_PHASE','guess'],
-  [164,2,'PWMICDefaultRedReg4','ok'],[166,2,'PWMICDefaultGreenReg4','ok'],[168,2,'PWMICDefaultBlueReg4','ok'],
-  [170,2,'PWMICDefaultRedReg5','ok'],[172,2,'PWMICDefaultGreenReg5','ok'],[174,2,'PWMICDefaultBlueReg5','ok'],
-  [242,1,'refreshMultiple','guess'],[252,1,'lineBreakTime','guess'],[464,2,'enclosureWidth_','ok'],[466,2,'enclosureHeight_','ok']
+  [0,1,'ModuleType','ok',0x0],[1,1,'ScreenSwitch','ok',0x1],[2,1,'CellWidth','ok',0x2],[3,1,'CellHight','ok',0x3],[4,1,'DataPolarity','ok',0x4],
+  [5,1,'OEPolarity','ok',0x5],[6,1,'DecodingMode','ok',0x6],[7,1,'SignalColor','ok',0x7],[8,1,'ScanMode','ok',0x8],[9,1,'Frequency','ok',0x9],
+  [10,1,'DutyCycle','ok',0xa],[11,1,'PriorityMode','ok',0xb],[12,1,'GrayLevel','ok',0xc],[13,1,'LuminanceLevel','ok',0xd],[14,1,'DSignalExtended','ok',0xe],
+  [15,1,'RGB20','ok',0xf],[16,1,'OM','ok',0x10],[17,1,'Phase','ok',0x11],[18,2,'BV','ok',0x12],[20,1,'RedCorrection','ok',0x14],
+  [21,1,'GreenCorrection','ok',0x15],[22,1,'BlueCorrection','ok',0x16],[23,1,'GamaValue','ok',0x17],[24,1,'CellScanRow','ok',0x18],[25,1,'NoSignalProcess','ok',0x19],
+  [26,1,'CellNullNum','ok',0x1a],[27,1,'Chip5266','ok',0x1b],[28,2,'CellDataNum','calc',0x1c],[30,2,'CellScanNum','calc',0x1e],[32,1,'SmartSettingStatus','ok',0x20],
+  [33,1,'SignalOutput','ok',0x21],[34,1,'RgbGroup1','ok',0x22],[35,1,'SmartSettingTracing','ok',0x23],[36,2,'LookUpTabSetting','ok',0x24],[38,1,'ScanCheck','ok',0x26],
+  [39,1,'ColourTemperature','ok',0x27],[40,1,'RGB24','ok',0x28],[41,1,'RGB32','ok',0x29],[42,1,'MoreThan16Scan','ok',0x2a],[43,1,'Chip595','ok',0x2b],
+  [44,2,'GCLKSmartMax','ok',0x2c],[46,2,'PWMSmartReg','ok',0x2e],[48,1,'F_Frame','ok',0x30],[49,1,'R_Acc','ok',0x31],[50,2,'RefreshRate','ok',0x32],
+  [52,2,'RefreshCountValue','ok',0x34],[54,2,'CardMaxCtrlWidth','ok',0x36],[56,2,'CardMaxCtrlHeight','ok',0x38],[58,1,'S_Fn','ok',0x3a],[59,1,'B_fn','ok',0x3b],
+  [60,2,'OE_T','ok',0x3c],[62,2,'Max_Data_Num','ok',0x3e],[64,3,'Max_OE_Clk_Num','ok',0x40],[67,1,'OutExchange','ok',0x44],[68,1,'Afterglow','ok',0x45],
+  [69,1,'CellVerticalScan','ok',0x46],[71,1,'RGBOutMode','ok',0x48],[72,2,'ScanModuleMaxNum','calc',0x4a],[74,1,'calibrationMode','ok',0x4c],[75,1,'Chip5958','ok',0x4d],
+  [76,1,'UDefGamaList','ok',0x4e],[77,1,'RGB28','ok',0x4f],[78,1,'blackingDelayLevel','ok',0x50],[79,1,'RgbInterleavingMode','ok',0x51],[80,1,'VirtualType','ok',0x52],
+  [81,1,'PwmChipType','ok',0x53],[82,1,'PwmFrequency','ok',0x54],[83,1,'PwmRedCurrent','ok',0x55],[84,1,'PwmGreenCurrent','ok',0x56],[85,1,'PwmBlueCurrent','ok',0x57],
+  [86,1,'DriveChipType','ok',0x58],[87,1,'PwmLink','ok',0x59],[88,1,'DCLKsource','ok',0x5a],[89,1,'ESignal','ok',0x5b],[90,1,'ClearMode','ok',0x5c],
+  [91,1,'GCLKMultiplier','ok',0x5d],[92,1,'DoubleRefreshRate','ok',0x5e],[93,1,'SPWMMode','ok',0x5f],[94,1,'PWMSRAMFLAG','ok',0x60],[95,1,'VSHighPulseCycleNum','ok',0x61],
+  [96,2,'GCLKCycleNum','ok',0x62],[98,2,'PWMScanNum','ok',0x64],[100,2,'GCLKDeadTime','ok',0x66],[102,2,'GCLKMaxNum','ok',0x68],[104,1,'PWMRegNum','ok',0x6a],
+  [105,1,'PWM_cfg_mode','ok',0x6b],[106,2,'PWMICRedReg1','ok',0x6c],[108,2,'PWMICGreenReg1','ok',0x6e],[110,2,'PWMICBlueReg1','ok',0x70],[112,2,'PWMICRedReg2','ok',0x72],
+  [114,2,'PWMICGreenReg2','ok',0x74],[116,2,'PWMICBlueReg2','ok',0x76],[118,2,'PWMICRedReg3','ok',0x78],[120,2,'PWMICGreenReg3','ok',0x7a],[122,2,'PWMICBlueReg3','ok',0x7c],
+  [124,1,'PREActiveCnt','ok',0x7e],[125,1,'WRConfigCnt1','ok',0x7f],[126,1,'WRConfigCnt2','ok',0x80],[127,1,'WRConfigCnt3','ok',0x81],[128,1,'PWMICFlag','ok',0x82],
+  [129,1,'GCLKPreNum','ok',0x83],[130,1,'GCLKBackNum','ok',0x84],[131,1,'FMPWMMultiplier','ok',0x85],[132,1,'_rotation','cond',0x86],[133,1,'GrayBitMode','ok',0x87],
+  [134,1,'FirstCanTime_','ok',0x88],[135,1,'RGB128','ok',0x89],[136,1,'GclkDuty_','ok',0x8a],[137,1,'timeShared_','ok',0x8b],[138,1,'ICN2018','ok',0x8c],
+  [139,1,'LS9926FrameMultiple','ok',0x8d],[140,2,'LS9926MaxWidth','ok',0x8e],[142,1,'MoreThan32Scan','ok',0x90],[143,1,'NewArchitecture','ok',0x91],[144,1,'NO_REGISTER_FLAG','ok',0x92],
+  [145,1,'EXT_ATTR_ENABLE','ok',0x93],[146,1,'DUAL_LATCH_FLAG','ok',0x94],[147,1,'Dual_refresh_max','ok',0x95],[148,1,'Dual_scan_null','ok',0x96],[149,1,'DIM_LINE_COMP','ok',0x97],
+  [150,2,'Dual_min_oe','ok',0x98],[152,2,'Dual_null_oe','ok',0x9a],[154,2,'Dual_row_sr','ok',0x9c],[156,2,'Dual_abf_num','ok',0x9e],[158,2,'Dual_oe_delay','ok',0xa0],
+  [160,1,'WR_CONFIG_CNT4','ok',0xa2],[161,1,'WR_CONFIG_CNT5','ok',0xa3],[162,1,'_nTracingPointOutputPort','ok',0xa4],[163,1,'GCLK_PHASE','ok',0xa5],[164,2,'PWMICRedReg4','ok',0xa6],
+  [166,2,'PWMICGreenReg4','ok',0xa8],[168,2,'PWMICBlueReg4','ok',0xaa],[170,2,'PWMICRedReg5','ok',0xac],[172,2,'PWMICGreenReg5','ok',0xae],[174,2,'PWMICBlueReg5','ok',0xb0],
+  [176,1,'DriveChipTypeHigh','ok',0xb2],[177,1,'Chip5366','ok',0xb3],[178,2,'PWMICRedReg6','ok',0xb4],[180,2,'PWMICGreenReg6','ok',0xb6],[182,2,'PWMICBlueReg6','ok',0xb8],
+  [184,2,'PWMICRedReg7','ok',0xba],[186,2,'PWMICGreenReg7','ok',0xbc],[188,2,'PWMICBlueReg7','ok',0xbe],[190,1,'WR_CONFIG_CNT6','ok',0xc0],[191,1,'WR_CONFIG_CNT7','ok',0xc1],
+  [192,1,'_decodingMethod138','ok',0xc2],[193,1,'_decodingMethod5958','ok',0xc3],[194,1,'_decodingDp32019','ok',0xc4],[195,1,'refreshOptimization','ok',0xc5],[196,2,'LsShiftLength_','ok',0xc6],
+  [198,1,'LsScanNum_','ok',0xc8],[199,1,'grayCntMax_','ok',0xc9],[200,1,'scanRamStart_','ok',0xca],[201,1,'GammaDirect_','ok',0xcb],[202,1,'RGBGroupOver20','ok',0xcc],
+  [203,1,'lowGrayCoefficientEnable_','ok',0xcd],[204,1,'lowGrayBoundR_','ok',0xce],[205,1,'lowGrayBoundG_','ok',0xcf],[206,1,'lowGrayBoundB_','ok',0xd0],[207,1,'lowGrayCoefficientR_','ok',0xd1],
+  [208,1,'lowGrayCoefficientG_','ok',0xd2],[209,1,'lowGrayCoefficientB_','ok',0xd3],[210,1,'dualEdgeFlag','ok',0xd4],[211,1,'freqMode','ok',0xd5],[212,1,'scanWidth','ok',0xd6],
+  [213,1,'moduleNum','ok',0xd7],[215,1,'constructBoxMaxAA','ok',0xd9],[216,1,'unk_struct_0xdd','info',0xdd],[217,1,'unk_struct_0xdc','info',0xdc],[218,1,'col_null_num','ok',0xde],
+  [219,1,'customPointTable','ok',0xdf],[222,1,'DummyTimeH','ok',0xe2],[223,1,'DeadTimeH','ok',0xe3],[224,1,'constructBoxDataMode','ok',0xe4],[226,1,'_bColorCompensation','ok',0xe6],
+  [227,1,'_RCompG','ok',0xe7],[228,1,'_RCompB','ok',0xe8],[229,1,'_GCompR','ok',0xe9],[230,1,'_GCompB','ok',0xea],[231,1,'_BCompR','ok',0xeb],
+  [232,1,'_BCompG','ok',0xec],[233,1,'_PassiveSeamRepair','ok',0xed],[236,1,'_dlckDualEdgeMode','ok',0xee],[237,1,'_doubleClockPin','ok',0xef],[238,1,'_rgbInDependentlyPoint','ok',0xf0],
+  [239,1,'_extendScanTable','ok',0xf1],[240,1,'GrayMode','ok',0xf2],[241,2,'refreshMultiple','ok',0xf4],[243,1,'blankingControl_','ok',0xf6],[244,1,'lineBlankingPotential','ok',0xf7],
+  [252,1,'lineBreakTime','ok',0xfa],[253,1,'afterglowEndTime','ok',0xfb],[254,1,'lineBlankPowerEnable','ok',0xfc],[255,1,'EnOutputDefinition','ok',0xfd],[448,1,'unk_struct_0xfe','info',0xfe],
+  [449,1,'dataOutMode','ok',0xff],[450,1,'LS9952_16_Or_18','ok',0x100],[451,1,'exGammaBit','ok',0x101],[464,2,'enclosureWidth_','ok',0x104],[466,2,'enclosureHeight_','ok',0x106],
+  [490,1,'resetStartPoint_','ok',0x108],[491,1,'newEnclosureModel_','cond',0x109],[194,1,'DP32019','ok',0xc4],[214,1,'boxType','cond',0xd8],[225,1,'constructBoxProtocolType','cond',0xe5]
  ];
- var P1BY={};P1.forEach(function(e){P1BY[e[2]]={off:e[0],size:e[1],conf:e[3]}});
+ var P1BY={};P1.forEach(function(e){if(e[3]!=='info')P1BY[e[2]]={off:e[0],size:e[1],conf:e[3],so:e[4]}});
  // Blob fields whose bytes are copied verbatim into other packets (verified by equality in sample)
- var BLOBS={OutputDefinition:{type:1,off:256,len:64},ScanTab:{type:2,off:0,len:512},GamaTab:{type:3,off:0,len:512},LookUpTab:{type:4,off:0,len:3072,split:true}};
+ var BLOBS={OutputDefinition:{type:1,off:256,len:64,od:true},ScanTab:{type:2,off:0,len:512},GamaTab:{type:3,off:0,len:512},LookUpTab:{type:4,off:0,len:3072,split:true}};
  function rawStatus(tag){
-  if(P1BY[tag])return P1BY[tag].conf==='ok'?'raw':'guess';
+  if(P1BY[tag])return (P1BY[tag].conf==='ok'||P1BY[tag].conf==='calc')?'raw':'guess';
   if(BLOBS[tag])return 'raw';
   return 'xml';
  }
@@ -192,18 +216,21 @@ var SSR = (function(){
  function applyEdits(xml,edits){
   var warnings=[],patched=[],tags=Object.keys(edits);
   tags.forEach(function(t){xml=setField(xml,t,edits[t])});
+  if((('EnOutputDefinition' in edits)||('RGBOutMode' in edits))&&!('OutputDefinition' in edits)){var mm=/<OutputDefinition Value="([^"]*)"/.exec(xml);if(mm){edits=Object.assign({},edits,{OutputDefinition:mm[1]});tags=Object.keys(edits)}}
   var raws=listRaws(xml),touched={};
   function pk(type,sub){for(var i=0;i<raws.length;i++)if(raws[i].info.type===type&&raws[i].info.sub===(sub||0))return i;return -1}
   tags.forEach(function(t){
    var v=edits[t],m=P1BY[t];
    if(m){
-    if(m.conf!=='ok'){warnings.push(t+': offset Raw chỉ là phỏng đoán → CHỈ sửa XML, gói Raw giữ nguyên');return}
+    if(m.conf==='cond'){warnings.push(t+': HDSet ghi byte p['+m.off+'] có điều kiện (theo loại thiết bị) → CHỈ sửa XML');return}
+    if(m.conf!=='ok'&&m.conf!=='calc'){warnings.push(t+': không vá Raw');return}
     if(!/^\d+$/.test(String(v).trim())){warnings.push(t+': giá trị không phải số nguyên → không vá Raw');return}
-    var n=parseInt(v,10),max=m.size===1?255:65535;
+    var n=parseInt(v,10),max=Math.pow(2,8*m.size)-1;
     if(n>max){warnings.push(t+': '+n+' vượt quá '+max+' (u'+m.size*8+') → không vá Raw');return}
     var i=pk(1,0); if(i<0){warnings.push('Không có gói Raw type 1');return}
     var b=raws[i].bytes,o=17+m.off;
-    if(m.size===1)b[o]=n;else{b[o]=n>>8;b[o+1]=n&255}
+    for(var q=m.size-1,x=n;q>=0;q--){b[o+q]=x&255;x=Math.floor(x/256)}
+    if(m.conf==='calc')warnings.push(t+': HDSet tự tính lại trường này khi lưu (CellDataNum=CellScanRow×(CellVerticalScan?CellHight:CellWidth), CellScanNum=CellDataNum+CellNullNum) – kiểm tra cho khớp');
     touched[i]=1;patched.push(t+' → Raw#'+i+' type1 p['+m.off+']');return;
    }
    var bl=BLOBS[t];
@@ -216,6 +243,12 @@ var SSR = (function(){
      var pos=0;chunks.forEach(function(i){var pl=raws[i].info.plen;for(var k=0;k<pl&&pos<d.length;k++,pos++)raws[i].bytes[17+k]=d[pos];touched[i]=1});
      patched.push(t+' → Raw type'+bl.type+' ('+chunks.length+' gói)');
     }else{
+     if(bl.od){
+      var cur=function(k){var r=new RegExp('<'+k+' Value="([^"]*)"').exec(xml);return r?parseInt(r[1],10)||0:0};
+      var en=cur('EnOutputDefinition'),N=cur('RGBOutMode')?128:64,j0=pk(1,0);if(j0<0){warnings.push('Không có gói Raw type 1');return}
+      for(var k=0;k<N;k++)raws[j0].bytes[17+256+k]=(en&&k<d.length)?d[k]:k;
+      touched[j0]=1;patched.push(t+' → Raw#'+j0+' type1 p[256..'+(255+N)+'] (quy tắc PrepareData: EnOutputDefinition='+en+(en?' → dùng bảng':' → bảng mặc định 0..N-1')+')');return;
+     }
      if(d.length!==bl.len){warnings.push(t+': độ dài '+d.length+' ≠ '+bl.len+' byte → không vá Raw');return}
      var j=pk(bl.type,0);if(j<0){warnings.push(t+': không có gói type '+bl.type);return}
      raws[j].bytes.set(d,17+bl.off);touched[j]=1;patched.push(t+' → Raw#'+j+' type'+bl.type);
@@ -243,10 +276,11 @@ if(typeof module!=='undefined')module.exports=SSR;
  // kind: 'num' | ['sel', [[value,label],...]] | 'chk'
  // ---- Authoritative lists extracted statically from HDSet V4.0.38.11 (HDSet.exe + HDSet.pdb, HwConf.ini, Language/ledsetting_en.qm) ----
  // CHIPS: [chipID, name, source]; chipID = (DriveChipTypeHigh<<8) | DriveChipType  (ST_HwConfig::_DriveChipType)
- var CHIPS=[[0, "Conventional", "both"], [1, "MBI5041", "both"], [2, "MBI5252", "both"], [3, "MBI5153", "both"], [4, "MBI5152", "both"], [5, "MBI5124", "both"], [6, "MBI5268", "exe"], [7, "MBI5051", "exe"], [64, "PR505x", "both"], [72, "SUM2017", "both"], [73, "SUM2017T", "both"], [74, "SUM2018", "both"], [75, "SUM2019", "both"], [76, "SUM2030", "both"], [77, "SUM2031", "both"], [78, "SUM2032", "both"], [79, "SUM2033", "both"], [80, "SUM2130", "both"], [81, "SUM2131", "both"], [82, "SUM2035", "exe"], [96, "MY9868", "both"], [97, "MY9862", "both"], [98, "MY9866", "exe"], [128, "ICN2038", "both"], [129, "ICN2038S", "both"], [130, "ICN205x", "both"], [131, "ICN2055", "both"], [132, "ICN2065", "both"], [133, "ICN1063", "exe"], [144, "GeneralRZ", "exe"], [160, "SM16207S", "both"], [161, "SM16017S", "both"], [162, "SM16227S", "both"], [163, "SM16159", "both"], [164, "SM16237", "both"], [165, "SM16259", "both"], [166, "SM16359", "both"], [167, "SM16169", "both"], [168, "SM16369", "both"], [169, "SM16380", "both"], [170, "SM16389", "both"], [172, "SM16388", "exe"], [176, "LS9929", "both"], [177, "LS9919", "both"], [178, "LS9935", "both"], [179, "LS9935B", "both"], [180, "LS9930", "both"], [181, "LS9931", "exe"], [182, "LS9928", "exe"], [183, "LS9926", "exe"], [184, "LS9936", "exe"], [185, "LS9937", "exe"], [186, "LS9932", "exe"], [187, "LS9937D", "exe"], [188, "LS9952", "exe"], [190, "LS9001", "exe"], [192, "FM6127", "both"], [193, "FM6182", "both"], [224, "DP3264", "both"], [225, "DP3246", "both"], [226, "DP5125", "both"], [227, "DP5135", "exe"], [229, "DP3263", "exe"], [328, "CS2017", "ini"], [335, "CS2033", "both"], [345, "CFD435A", "exe"], [354, "FM6129", "exe"], [416, "SM16208", "exe"], [432, "LS9929C", "exe"], [436, "LS9933", "exe"], [441, "LS9956", "exe"], [444, "LS6850", "exe"], [446, "LS9001B", "exe"], [480, "DP3265", "both"], [584, "CFD135A", "exe"], [591, "CFD455A", "ini"], [1408, "ICN2028", "ini"], [1664, "ICN2037", "ini"], [1665, "ICN2045", "ini"], [1921, "ICN2046", "ini"], [1922, "ICN2053", "ini"], [2177, "ICN2047", "ini"], [2178, "ICN2153", "ini"], [2434, "ICN2163", "ini"], [2948, "FM6565S", "exe"], [3204, "FM6565F", "exe"], [4225, "GS6238S", "ini"], [4226, "GS6263", "ini"], [4259, "RT5965", "exe"], [16258, "FM6353", "ini"], [17024, "FM6124", "ini"], [17025, "FM6126", "ini"], [20353, "LYD6124", "ini"], [20609, "LYD6126", "ini"], [49411, "FM6153", "both"], [49667, "FM6253", "ini"], [49923, "FM6047", "ini"], [51074, "FM6363", "ini"], [51332, "FM6565", "ini"], [52995, "LYD6168", "both"], [53380, "HX8864", "both"], [53636, "AXS6018", "exe"], [65535, "Other", "ini"]];
- var CHIPSRC={"exe": "HDSet.exe", "ini": "HwConf.ini", "both": "HDSet.exe + HwConf.ini"};
+ var CHIPS=[[0, "Conventional", "exe+ini"], [1, "MBI5041/MBI5042", "exe+ini+plugin"], [2, "MBI5252", "exe+ini+plugin"], [3, "MBI5153", "exe+ini+plugin"], [4, "MBI5152", "exe+ini+plugin"], [5, "MBI5124", "exe+ini+plugin"], [6, "MBI5268", "exe+plugin"], [7, "MBI5051 / MBI5051B", "exe+plugin"], [10, "FM6864", "plugin"], [64, "PR505x", "exe+ini+plugin"], [72, "SUM2017", "exe+ini+plugin"], [73, "SUM2017T", "exe+ini+plugin"], [74, "SUM2018", "exe+ini+plugin"], [75, "SUM2019", "exe+ini+plugin"], [76, "SUM2030", "exe+ini+plugin"], [77, "SUM2031", "exe+ini+plugin"], [78, "SUM2032", "exe+ini+plugin"], [79, "SUM2033", "exe+ini+plugin"], [80, "SUM2130", "exe+ini+plugin"], [81, "SUM2131", "exe+ini+plugin"], [82, "SUM2035", "exe+plugin"], [96, "MY9868", "exe+ini+plugin"], [97, "MY9862", "exe+ini+plugin"], [98, "MY9866", "exe+plugin"], [128, "ICN2038", "exe+ini+plugin"], [129, "ICN2038S", "exe+ini+plugin"], [130, "ICN205x", "exe+ini+plugin"], [131, "ICN2055", "exe+ini+plugin"], [132, "ICN2065", "exe+ini+plugin"], [133, "ICN1063/ICN2263", "exe+plugin"], [144, "GeneralRZ", "exe"], [160, "SM16207S", "exe+ini+plugin"], [161, "SM16017S", "exe+ini+plugin"], [162, "SM16227S", "exe+ini+plugin"], [163, "SM16159", "exe+ini+plugin"], [164, "SM16237", "exe+ini+plugin"], [165, "SM16259", "exe+ini+plugin"], [166, "SM16359", "exe+ini+plugin"], [167, "SM16169", "exe+ini+plugin"], [168, "SM16369", "exe+ini+plugin"], [169, "SM16380", "exe+ini+plugin"], [170, "SM16389", "exe+ini+plugin"], [172, "SM16388", "exe+plugin"], [176, "LS9929", "exe+ini+plugin"], [177, "LS9919", "exe+ini+plugin"], [178, "LS9935", "exe+ini+plugin"], [179, "LS9935B", "exe+ini+plugin"], [180, "LS9930", "exe+ini+plugin"], [181, "LS9931", "exe+plugin"], [182, "LS9928", "exe+plugin"], [183, "LS9926", "exe+plugin"], [184, "LS9936", "exe+plugin"], [185, "LS9937", "exe+plugin"], [186, "LS9932", "exe+plugin"], [187, "LS9937D", "exe+plugin"], [188, "LS9952", "exe+plugin"], [190, "LS9001", "exe+plugin"], [192, "FM6127", "exe+ini+plugin"], [193, "FM6182", "exe+ini+plugin"], [224, "DP3264/DP3269/DP3256", "exe+ini+plugin"], [225, "DP3246", "exe+ini+plugin"], [226, "DP5125", "exe+ini+plugin"], [227, "DP5135", "exe+plugin"], [229, "DP3263", "exe+plugin"], [328, "CS2017 / CS2017S", "ini+plugin"], [335, "CS2033", "exe+ini+plugin"], [345, "CFD435A", "exe+plugin"], [354, "FM6129", "exe+plugin"], [416, "SM16208", "exe+plugin"], [432, "LS9929C", "exe+plugin"], [436, "LS9933", "exe+plugin"], [441, "LS9956", "exe+plugin"], [444, "LS6850", "exe"], [446, "LS9001B", "exe+plugin"], [480, "DP3265 / DP3265S/DP3364", "exe+ini+plugin"], [584, "CFD135A", "exe+plugin"], [591, "CFD455A", "ini+plugin"], [610, "SM16218", "plugin"], [697, "LS9937C", "plugin"], [702, "LS9001H", "plugin"], [1408, "ICN2028", "ini+plugin"], [1412, "FM6373", "plugin"], [1664, "ICN2037", "ini+plugin"], [1665, "ICN2045", "ini+plugin"], [1921, "ICN2046", "ini+plugin"], [1922, "ICN2053", "ini+plugin"], [2177, "ICN2047", "ini+plugin"], [2178, "ICN2153", "ini+plugin"], [2180, "FM6373C", "plugin"], [2434, "ICN2163", "ini+plugin"], [2436, "FM6565E", "plugin"], [2692, "FM6373D", "plugin"], [2948, "FM6565S", "exe+plugin"], [3204, "FM6565F", "exe+plugin"], [4225, "GS6238S", "ini+plugin"], [4226, "GS6263", "ini+plugin"], [4259, "RT5965", "exe+plugin"], [4482, "CNS7153", "plugin"], [4738, "CNS7253", "plugin"], [8355, "RT5967", "plugin"], [16258, "FM6353", "ini+plugin"], [17024, "FM6124", "ini+plugin"], [17025, "FM6126", "ini+plugin"], [20353, "LYD6124", "ini+plugin"], [20609, "LYD6126", "ini+plugin"], [21121, "FM6128", "plugin"], [49411, "FM6153", "exe+ini+plugin"], [49667, "FM6253", "ini+plugin"], [49923, "FM6047", "ini+plugin"], [51074, "FM6363", "ini+plugin"], [51332, "FM6565", "ini+plugin"], [52995, "LYD6168", "exe+ini+plugin"], [53380, "HX8864", "exe+ini+plugin"], [53636, "AXS6018", "exe+plugin"], [65535, "Other", "ini"]];
+ var CHIPSRC=function(s){return s.replace("exe","HDSet.exe").replace("ini","HwConf.ini").replace("plugin","bảng ID trong ExtensionModule/*Plugin.dll")};
+// Mã không có trong danh sách: HChipInfoFactory rơi vào nhánh default = HChipInfoExtend (IC mở rộng/nạp từ plugin DLL). Mã được cấp theo khối hãng (0x00 MBI, 0x40 PR, 0x48 SUM, 0x60 MY, 0x80 ICN, 0x90 RZ, 0xA0 SM, 0xB0 LS, 0xC0 FM, 0xE0 DP…), khoảng trống = chưa cấp, không phải IC bị thiếu.
  function chipName(id){for(var i=0;i<CHIPS.length;i++)if(CHIPS[i][0]===id)return CHIPS[i][1];return null}
- function chipOpts(){var hi=parseInt(st.cur.DriveChipTypeHigh||'0',10)||0;return CHIPS.filter(function(c){return (c[0]>>8)===hi}).map(function(c){return [String(c[0]&255),(c[0]&255)+' – '+c[1]+(hi?' (ID 0x'+c[0].toString(16)+')':'')+' ['+CHIPSRC[c[2]]+']']})}
+ function chipOpts(){var hi=parseInt(st.cur.DriveChipTypeHigh||'0',10)||0;return CHIPS.filter(function(c){return (c[0]>>8)===hi}).map(function(c){return [String(c[0]&255),(c[0]&255)+' – '+c[1]+(hi?' (ID 0x'+c[0].toString(16)+')':'')+' ['+CHIPSRC(c[2])+']']})}
  var FORM=[
   ['Thông số cơ bản (Basic parameters)',[
    ['RefreshRate','Tần số quét – Refresh rate','Giá trị thật (Hz). Ảnh: 1920','num'],
@@ -258,13 +292,14 @@ if(typeof module!=='undefined')module.exports=SSR;
    ['LuminanceLevel','Mức sáng – Brightness level','XÁC NHẬN (HReceiverParameters::InitUI/on_brightness…: lưu currentIndex). Mẫu 1 ✔',['sel',[['0','0 – Low light'],['1','1 – Normal brightness'],['2','2 – High light']]]],
    ['PriorityMode','Chế độ ưu tiên – Priority mode','XÁC NHẬN (InitUI + on_priofity…: lưu index). Mẫu 1 ✔',['sel',[['0','0 – Brightness priority'],['1','1 – Refresh Rate Priority'],['2','2 – Grayscale priority']]]],
    ['GrayMode','Chế độ xám – Gray mode','XÁC NHẬN (updateGrayModelUI). File mẫu không có trường này → phần mềm dùng 0',['sel',[['0','0 – Low gray balance'],['1','1 – Video noise reduction']]]],
-   ['lineBreakTime','Line break time','Ảnh: 5. Offset Raw chưa chắc → chỉ sửa XML','num'],
-   ['refreshOptimization','Refresh optimization','0/1 (ảnh: không tích)','num']
+   ['lineBreakTime','Line break time','XÁC NHẬN (on_spinBox_lineBreakTime_valueChanged → struct 0xfa → p252). Ảnh: 5','num'],
+   ['refreshOptimization','Refresh optimization','XÁC NHẬN (on_checkBox_refreOptim_stateChanged → struct 0xc5 → p195). 0/1','chk']
   ]],
   ['Module (Tips)',[
    ['ModuleType','Loại module – Module type','XÁC NHẬN (HReceiverParameters::UpdateTips): 0 = Full Color, ≠0 = Single Color',['sel',[['0','0 – Full Color'],['1','1 – Single Color']]]],
    ['ScanMode','Kiểu quét – Scan (1/N)','XÁC NHẬN (UpdateTips): N của 1/N; 1 = Static. Mẫu 13 ✔','num'],
-   ['DecodingMode','Giải mã – Decoding method','XÁC NHẬN (ST_HwConfig::GetDecodeChipName). Với 1, tên cụ thể phụ thuộc Chip595/Chip5958/Chip5266/Chip5366/DP32019/ICN2018/_decodingMethod138 – xem "Giá trị suy ra". Chip LS9001 luôn = No Decoding',['sel',[["0", "0 – No Decoding"], ["1", "1 – họ 138 (595/RT5958…/SM5266/SM5366/DP32019/ICN2018…/138/ICN2012…, tùy cờ phụ)"], ["3", "3 – DP32030/DP32029/DP32020"], ["5", "5 – ICN2013"], ["7", "7 – TC7559B"], ["8", "8 – LS9708"], ["9", "9 – TC7239"], ["11", "11 – HX6158H"], ["13", "13 – SM5388/SM5368/SM5369"], ["15", "15 – LS9736"], ["16", "16 – LS9716"], ["17", "17 – DP32129/DP32039"], ["18", "18 – CFD2138S"]]]],
+   ['__decode','Giải mã (mục UI HDSet)','XÁC NHẬN (on_DecodingMode_clicked 0xb0b3b0): HDSet ghi CÙNG LÚC 10 trường DecodingMode/Chip595/Chip5958/Chip5266/ESignal/ICN2018/_decodingMethod138/_decodingMethod5958/Chip5366/DP32019 và đặt BV/lineBreakTime/blackingDelayLevel/blankingControl_/lineBlankingPotential (initWindowParamWhenSmartSetting). Chọn ở đây làm y như vậy. Mục bị khóa = file thiếu trường XML cần thiết (editor không chèn trường mới)','decode'],
+   ['DecodingMode','Giải mã – Decoding method','XÁC NHẬN (ST_HwConfig::GetDecodeChipName). Với 1, tên cụ thể phụ thuộc Chip595/Chip5958/Chip5266/Chip5366/DP32019/ICN2018/_decodingMethod138 – xem "Giá trị suy ra". Chip LS9001 luôn = No Decoding. UI HDSet chỉ ghi 0,1,3,5,7,8,9,11,13,15,16,17,18; 2,4,6,10,12,14 không có mục nào (mã chưa dùng/bỏ trống, không phải cờ bit). Nên dùng ô "Giải mã (mục UI HDSet)" phía trên',['sel',[["0", "0 – No Decoding"], ["1", "1 – họ \"138\" (138/595/ICN2012/ICN2018/SM5166/SM5266/SM5366/TC7258/TC7558/RT5958/HX6157/HX6258/VB5658/CNS3018/DP32019 – phân biệt bằng cờ phụ)"], ["3", "3 – DP32030/DP32029/DP32020"], ["5", "5 – ICN2013"], ["7", "7 – TC7559B"], ["8", "8 – LS9708"], ["9", "9 – TC7239"], ["11", "11 – HX6158H"], ["13", "13 – SM5388/SM5368/SM5369"], ["15", "15 – LS9736"], ["16", "16 – LS9716"], ["17", "17 – DP32129/DP32039"], ["18", "18 – CFD2138S"]]]],
    ['Chip595','Cờ 74HC595 – Chip595','Cờ phụ cho DecodingMode=1 (ưu tiên 1)','chk'],
    ['Chip5958','Cờ 5958 – Chip5958','Cờ phụ (ưu tiên 2): RT5958/TC7558/HX6157/VB5658 theo _decodingMethod5958','chk'],
    ['Chip5266','Cờ SM5266 – Chip5266','Cờ phụ (ưu tiên 3)','chk'],
@@ -272,30 +307,48 @@ if(typeof module!=='undefined')module.exports=SSR;
    ['DataPolarity','Cực tính data – Data polarity','XÁC NHẬN (UpdateTips): 0 = Low effective, ≠0 = Highly effective',['sel',[['1','1 – Highly effective (mức cao)'],['0','0 – Low effective (mức thấp)']]]],
    ['OEPolarity','Cực tính OE – OE polarity','XÁC NHẬN (UpdateTips): 0 = Low effective, ≠0 = Highly effective',['sel',[['0','0 – Low effective (mức thấp)'],['1','1 – Highly effective (mức cao)']]]],
    ['DriveChipType','IC driver – Drive','XÁC NHẬN: ID chip = (DriveChipTypeHigh<<8)|DriveChipType (ST_HwConfig::_DriveChipType → HChipInfoFactory::CreateChipInfoObj; khớp ChipID trong HwConf.ini). Mẫu: 5, không có High → 0x05 = MBI5124 ✔ (thanh ghi mặc định 0x7D6B/0xF16B/0xED6B, GCLKSmartMax 0x3FF khớp). Lưu ý: chỉ đổi byte thấp; HDSet khi đổi IC còn nạp lại nhiều thanh ghi mặc định – editor KHÔNG làm việc đó','chip'],
-   ['PwmChipType','PwmChipType','CHƯA RÕ nghĩa (không thuộc ID chip)','num'],
+   ['PwmChipType','PwmChipType','Không có UI/logic nào trong HDSet dùng trường này: chỉ đọc XML → struct 0x53 → gói Raw p81 (truyền thẳng cho card). Ý nghĩa nằm ở firmware card – chưa rõ','num'],
    ['OM','Chế độ – Mode','XÁC NHẬN (on_OutputMode_currentIndexChanged: OM = index+1). Mẫu 1 ✔',['sel',[["1", "1 – Single separate"], ["2", "2 – Two separate"], ["3", "3 – Three separate"], ["4", "4 – Four separate"], ["5", "5 – Five separate"], ["6", "6 – Six separate"], ["7", "7 – Seven separate"], ["8", "8 – Eight separate"], ["9", "9 – Nine separate"], ["10", "10 – Ten separate"], ["11", "11 – Eleven separate"], ["12", "12 – Twelve separate"], ["13", "13 – Thirteen separate"], ["14", "14 – Fourteen separate"], ["15", "15 – Fifteen separate"], ["16", "16 – Sixteen separate"]]]],
    ['_rotation','Xoay – Rotation','XÁC NHẬN (retranslateUi + on__rotation; chú thích trong CorrectionScript). File mẫu không có trường → 0',['sel',[['0','0 – 0°'],['1','1 – 90°'],['2','2 – 180°'],['3','3 – 270°']]]],
-   ['CellWidth','CellWidth (độ rộng module)','Chưa rõ nghĩa trên UI','num'],
-   ['CellHight','CellHight (độ cao module)','Chưa rõ nghĩa trên UI','num']
+   ['CellWidth','CellWidth – rộng module (điểm)','XÁC NHẬN dùng để tính: CellDataNum = CellScanRow × CellWidth (hoặc × CellHight nếu CellVerticalScan=1). p2','num'],
+   ['CellHight','CellHight – cao module (điểm)','p3; dùng thay CellWidth khi CellVerticalScan=1','num']
   ]],
   ['HUB settings (0/1)',[
-   ['RGB24','HUB75-12 (24RGB)','Xác nhận: 1 = tích','chk'],
-   ['RGB32','HUB75-16 (32RGB)','Đoán theo tên trường','chk'],
-   ['RGB28','R505 (28RGB)','Đoán theo tên trường','chk'],
-   ['RGB20','HUB75-10 (20RGB)','Đoán theo tên trường','chk'],
-   ['RGB128','Serial 128 group','Đoán theo tên trường','chk']
+   ['RGB24','HUB75-12 (24RGB)','XÁC NHẬN (on_R501_24RGB_clicked → p40). 1 = tích','chk'],
+   ['RGB32','HUB75-16 (32RGB) / R3210 (40RGB)','XÁC NHẬN (on_R502_32RGB_clicked / on_R3210_40rgb_clicked → p41): 0 không, 1 HUB75-16 (32RGB), 2 R3210 (40RGB)',['sel',[['0','0 – không chọn'],['1','1 – HUB75-16 (32RGB)'],['2','2 – R3210 (40RGB)']]]],
+   ['RGB28','R505 (28RGB)','XÁC NHẬN (on_R505_28RGB_clicked → p77). Bản trước vá nhầm vào p42 – đã sửa','chk'],
+   ['RGB20','HUB75-10 (20RGB)','XÁC NHẬN (on_HUB75B_10_20RGB_clicked → p15)','chk'],
+   ['DSignalExtended','HUB75-20 (extended)','XÁC NHẬN (retranslateUi + CheckHub → p14)','chk'],
+   ['RGB128','Serial 128 / 96 group','XÁC NHẬN (on_checkBox_serial128/serial96_clicked → p135): 1 Serial 128 group, 2 Serial 96 group',['sel',[['0','0 – không chọn'],['1','1 – Serial 128 group'],['2','2 – Serial 96 group']]]],
+   ['_bR16Serial128','Enabled R16 Serial Mode','Tên trường theo retranslateUi; không có trong gói Raw (chỉ XML)','chk']
   ]],
   ['Hộp – Case',[
-   ['boxType','Loại hộp – Box type','0 ↔ Regular box (xác nhận 1 giá trị); 1 ↔ Construct box (đoán)','num'],
+   ['boxType','Loại hộp – Box type','0 = hộp thường; 1 = Construct box (PrepareData/FillRecvCardParamBuf dùng boxType==1 cho các trường constructBox*). Gói Raw p214 ghi có điều kiện → chỉ sửa XML',['sel',[['0','0 – Regular box'],['1','1 – Construct box']]]],
    ['enclosureWidth_','Rộng – Width','Ảnh: 52','num'],
    ['enclosureHeight_','Cao – Height','Ảnh: 52','num'],
    ['CardMaxCtrlWidth','Giới hạn rộng (<=)','Ảnh: 159 – phần mềm thường tự tính','num'],
    ['CardMaxCtrlHeight','Giới hạn cao (<=)','Ảnh: 624 – phần mềm thường tự tính','num'],
-   ['NetCard','NetCard','CHƯA RÕ: HCommon::BeginGeneratorBuf ghi từ thuộc tính thiết bị/card gửi; KHÔNG phải combo "Network port" (combo đó không ghi trường này)','num']
+   ['NetCard','NetCard','Không thuộc tham số card nhận: HCommon::BeginGeneratorBuf ghi từ đối số do thiết bị/card gửi cung cấp; khi mở file AnalyzeHwInfo chỉ đọc ra biến ngoài, không vào ST_HwConfig, không vào gói Raw. Ý nghĩa cụ thể chưa rõ','num']
   ]]
  ];
- var NOTFOUND='Min OE và Highly effective % không lưu trong file – phần mềm tự tính (xem "Giá trị suy ra"). Chưa rõ: PwmChipType, NetCard, CellWidth/CellHight trên UI.';
- function decoderName(c){var g=function(t){return parseInt(c[t]||'0',10)||0};var id=(g('DriveChipTypeHigh')<<8)|g('DriveChipType');
+ var NOTFOUND='Min OE và Highly effective % không lưu trong file – phần mềm tự tính (xem "Giá trị suy ra"). Chưa rõ: ý nghĩa PwmChipType (chỉ truyền thẳng), NetCard (thuộc thiết bị gửi).';
+ // DECODE: các mục trong hộp thoại Decoding của HDSet (HDecodingSelectDialog; danh sách tĩnh khởi tạo tại 0x473ef0, ghi bởi HReceiverParameters::on_DecodingMode_clicked 0xb0b3b0)
+// [nhóm, nhãn UI, DecodingChip[DecodingMode,Chip595,Chip5958,Chip5266,ESignal(255=tự tính),ICN2018,_decodingMethod138,_decodingMethod5958,Chip5366,DP32019], LineDecodingAbout[BV,lineBreakTime,blackingDelayLevel,blankingControl_,lineBlankingPotential]]
+var DECODE=[["ICN", "ICN2012", [1, 0, 0, 0, 255, 0, 1, 0, 0, 0], [25, 5, 0, 0, 0]], ["ICN", "ICN2013", [5, 0, 0, 0, 255, 0, 0, 0, 0, 0], [25, 5, 0, 23, 0]], ["ICN", "ICN2018", [1, 0, 0, 0, 0, 1, 0, 0, 0, 0], [25, 5, 50, 23, 0]], ["SM", "SM5166", [1, 0, 0, 0, 255, 0, 3, 0, 0, 0], [25, 5, 0, 0, 0]], ["SM", "SM5266", [1, 0, 0, 1, 0, 0, 0, 0, 0, 0], [25, 3, 10, 0, 0]], ["SM", "SM5366", [1, 0, 0, 0, 0, 0, 0, 0, 1, 0], [25, 5, 70, 50, 0]], ["SM", "SM5388/SM5368/SM5369", [13, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 80, 41, 24]], ["LS", "LS9736", [15, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 0, 32, 0]], ["LS", "LS9708", [8, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 15, 15, 0]], ["LS", "LS9716", [16, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 15, 15, 0]], ["DP", "DP32019", [1, 0, 0, 0, 0, 0, 0, 0, 0, 1], [25, 5, 0, 11, 0]], ["DP", "DP32030/DP32029/DP32020", [3, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 80, 11, 0]], ["DP", "DP32129/DP32039", [17, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 80, 11, 0]], ["TC", "TC7258", [1, 0, 0, 0, 255, 0, 4, 0, 0, 0], [25, 5, 0, 0, 0]], ["TC", "TC7558", [1, 0, 1, 0, 0, 0, 0, 1, 0, 0], [25, 5, 36, 0, 0]], ["TC", "TC7559B", [7, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 80, 21, 24]], ["TC", "TC7239", [9, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 80, 21, 24]], ["Other", "138", [1, 0, 0, 0, 255, 0, 0, 0, 0, 0], [25, 5, 0, 0, 0]], ["Other", "No Decoding", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 0, 0, 0]], ["Other", "595", [1, 1, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 0, 0, 0]], ["Other", "RT5958", [1, 0, 1, 0, 0, 0, 0, 0, 0, 0], [25, 5, 36, 0, 0]], ["Other", "HX6158H", [11, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 36, 12, 0]], ["Other", "HX6258", [1, 0, 0, 0, 0, 5, 0, 0, 0, 0], [25, 5, 50, 14, 0]], ["Other", "HX6157", [1, 0, 1, 0, 0, 0, 0, 2, 0, 0], [25, 5, 36, 0, 0]], ["Other", "VB5658", [1, 0, 1, 0, 0, 0, 0, 3, 0, 0], [25, 5, 36, 0, 0]], ["Other", "CNS3018", [1, 0, 0, 0, 0, 3, 0, 0, 0, 0], [25, 5, 50, 23, 0]], ["Other", "CFD2138S", [18, 0, 0, 0, 0, 0, 0, 0, 0, 0], [25, 5, 32, 0, 0]]];
+var DCF=['DecodingMode','Chip595','Chip5958','Chip5266','ESignal','ICN2018','_decodingMethod138','_decodingMethod5958','Chip5366','DP32019'],LDF=['BV','lineBreakTime','blackingDelayLevel','blankingControl_','lineBlankingPotential'];
+function dcTag(c,t){if(t==='DP32019'&&c.DP32019===undefined&&c._decodingDp32019!==undefined)return '_decodingDp32019';return t}
+function esAuto(c){return (c.MoreThan16Scan==='1'&&(c.MoreThan32Scan||'0')==='0')?'1':'0'}
+function decodeNeed(c,e){var miss=[];DCF.forEach(function(t,k){var v=e[2][k];if(v===255)return;if(c[dcTag(c,t)]===undefined&&v!==0)miss.push(t)});return miss}
+function decodeCur(c){var g=function(t){return parseInt(c[dcTag(c,t)]||'0',10)||0};
+ for(var i=0;i<DECODE.length;i++){var e=DECODE[i],ok=true;for(var k=0;k<10;k++){if(e[2][k]===255)continue;if(g(DCF[k])!==e[2][k]){ok=false;break}}if(ok)return i}return -1}
+function applyDecode(i){var e=DECODE[i],c=st.cur,w=[];
+ DCF.forEach(function(t,k){var tt=dcTag(c,t),v=e[2][k];if(v===255)v=+esAuto(c);if(c[tt]!==undefined)c[tt]=String(v)});
+ var id=((parseInt(c.DriveChipTypeHigh||'0',10)||0)<<8)|(parseInt(c.DriveChipType||'0',10)||0),l=e[3];
+ if(id===0xa9&&e[2][2]===1&&e[2][7]===0)l=[25,5,3,0,0];
+ LDF.forEach(function(t,k){if(c[t]!==undefined)c[t]=String(l[k]);else if(l[k])w.push(t+'='+l[k])});
+ if(c.UDefGamaList==='1')c.UDefGamaList='0';
+ return w}
+function decoderName(c){var g=function(t){return parseInt(c[t]||'0',10)||0};var id=(g('DriveChipTypeHigh')<<8)|g('DriveChipType');
   if(id===0xbe||id===0x1be||id===0x2be)return 'No Decoding (chip LS9001)';var m=g('DecodingMode');
   if(m===1){if(g('Chip595')===1)return '595';if(g('Chip5958')===1)return ['RT5958','TC7558','HX6157','VB5658'][g('_decodingMethod5958')]||'RT5958?';
    if(g('Chip5266'))return 'SM5266';if(g('Chip5366'))return 'SM5366';if(g('DP32019')||g('_decodingDp32019'))return 'DP32019';
@@ -303,7 +356,7 @@ if(typeof module!=='undefined')module.exports=SSR;
    return ['138','ICN2012','ICN2013','SM5166','TC7258'][g('_decodingMethod138')]||'138 decoding';}
   var M={3:'DP32030/DP32029/DP32020',5:'ICN2013',7:'TC7559B',8:'LS9708',9:'TC7239',11:'HX6158H',13:'SM5388/SM5368/SM5369',15:'LS9736',16:'LS9716',17:'DP32129/DP32039',18:'CFD2138S'};return M[m]||'No Decoding';}
  function derived(c){var n=function(t){return parseFloat(c[t]||'0')||0},r=[];
-  var id=(n('DriveChipTypeHigh')<<8)|n('DriveChipType');r.push(['IC driver','0x'+id.toString(16)+' = '+(chipName(id)||'không có trong danh sách')]);
+  var id=(n('DriveChipTypeHigh')<<8)|n('DriveChipType');r.push(['IC driver','0x'+id.toString(16)+' = '+(chipName(id)||'không có trong danh sách → HDSet dùng HChipInfoExtend (IC mở rộng/plugin)')]);
   r.push(['Giải mã',decoderName(c)]);
   var gl=n('GrayLevel');r.push(['Mức xám',gl?String(Math.pow(2,gl+1)):'?']);
   var oet=n('OE_T'),mo=n('Max_OE_Clk_Num'),racc=n('R_Acc');
@@ -334,7 +387,7 @@ if(typeof module!=='undefined')module.exports=SSR;
  function updateStatus(){
   var i=st.info,r=st.raws,ch=changes(),n=Object.keys(ch).length,res=SSR.applyEdits(st.origXml,ch);
   var crcBad=r.filter(function(x){return !x.info.crcOk}).length;
-  var h='<b>'+esc(st.name)+'</b> – version='+i.version+' flag='+i.flagHex+' | MD5: '+(i.md5Ok?'<span class="ok">hợp lệ ✔</span>':'<span class="bad">SAI ✘ (file đã bị sửa tay?)</span>')+
+  var h='<b>'+esc(st.name)+'</b> – phiên bản file '+Array.prototype.join.call(i.prefix.slice(4,8),'.')+' (header: QByteArray dài '+i.version+') | MD5: '+(i.md5Ok?'<span class="ok">hợp lệ ✔</span>':'<span class="bad">SAI ✘ (file đã bị sửa tay?)</span>')+
    ' | độ dài: '+(i.ncharsOk?'<span class="ok">OK</span>':'<span class="bad">lệch</span>')+(i.trailing?' <span class="warn">(thừa '+i.trailing+' byte cuối)</span>':'')+
    ' | XML: '+(st.dpOk?'<span class="ok">hợp lệ</span>':'<span class="bad">DOMParser báo lỗi</span>')+' | '+st.fields.length+' trường, '+r.length+' gói Raw, CRC: '+
    (crcBad?'<span class="bad">'+crcBad+' gói sai</span>':'<span class="ok">tất cả đúng</span>')+'\n';
@@ -353,6 +406,12 @@ if(typeof module!=='undefined')module.exports=SSR;
    h+='<fieldset><legend>'+sec[0]+'</legend><div class="grid">';
    sec[1].forEach(function(f){
     var tag=f[0],kind=f[3],v=st.cur[tag];if(kind==='chip')kind=['sel',chipOpts()];
+    if(kind==='decode'){if(st.cur.DecodingMode===undefined)return;var cu=decodeCur(st.cur),gp='';
+     var o='<select id="decodeSel"><option value="-1"'+(cu<0?' selected':'')+'>(không khớp mục UI nào)</option>';
+     DECODE.forEach(function(e,i){if(e[0]!==gp){if(gp)o+='</optgroup>';o+='<optgroup label="'+e[0]+'">';gp=e[0]}var m=decodeNeed(st.cur,e);
+      o+='<option value="'+i+'"'+(i===cu?' selected':'')+(m.length?' disabled':'')+'>'+esc(e[1])+(m.length?' (file thiếu '+m.join(',')+')':'')+'</option>'});
+     o+='</optgroup></select>';
+     h+='<div class="f"><label>'+f[1]+'<small>10 trường DecodingChip</small></label>'+o+'<span class="note">'+f[2]+'</span></div>';return}
     if(v===undefined){h+='<div class="f"><label>'+f[1]+'<small>'+tag+'</small></label><span class="note">không có trong file</span><span></span></div>';return}
     var inp;
     if(kind==='chk'&&(v==='0'||v==='1'))inp='<input type="checkbox" data-tag="'+tag+'" '+(v==='1'?'checked':'')+'>';
@@ -364,6 +423,8 @@ if(typeof module!=='undefined')module.exports=SSR;
   });
   $('tab-form').innerHTML=h;
   $('tab-form').querySelectorAll('[data-tag]').forEach(function(el){el.addEventListener('input',onEdit);el.addEventListener('change',onEdit)});
+  var ds=$('decodeSel');if(ds)ds.addEventListener('change',function(){var i=+ds.value;if(i<0)return;var w=applyDecode(i);renderForm();renderAdv();updateStatus();
+   if(w.length)$('status').innerHTML+='\n<span class="warn">⚠ Giải mã: file thiếu trường '+esc(w.join(', '))+' – HDSet sẽ đặt các giá trị này nhưng editor không chèn trường mới</span>'});
  }
  function renderAdv(){
   var tb=$('advTable').tBodies[0],h='';
@@ -378,6 +439,7 @@ if(typeof module!=='undefined')module.exports=SSR;
  function onEdit(ev){
   var el=ev.target,t=el.dataset.tag,v=el.type==='checkbox'?(el.checked?'1':'0'):el.value;
   st.cur[t]=v;
+  var ds=$('decodeSel');if(ds&&DCF.concat(['_decodingDp32019']).indexOf(t)>=0){var cu=decodeCur(st.cur);ds.value=String(cu)}
   document.querySelectorAll('[data-tag="'+t+'"]').forEach(function(o){if(o===el)return;if(o.type==='checkbox')o.checked=v==='1';else if(o.value!==v)o.value=v});
   updateStatus();
  }
